@@ -25,7 +25,7 @@ namespace PedalSpectral
 
     /// <summary>
     /// OnRender-painted surface, so FrameworkElement and not UserControl —
-    /// a UserControl's template would paint over everything (Core §26.7).
+    /// a UserControl's default template paints its Border over OnRender output.
     /// </summary>
     public class SpectralGui : FrameworkElement, IMachineGUI
     {

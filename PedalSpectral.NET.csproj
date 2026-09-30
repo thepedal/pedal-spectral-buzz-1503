@@ -1,11 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    HOUSE-RULE EXCEPTION: this machine targets Jeskola Buzz 1503 (32-bit), not ReBuzz.
-    Jeskola Buzz hosts managed machines on .NET Framework, so a net10.0 dll cannot load.
-    Deviates from Build §1.2 (TargetFramework, UseWPF) and §1.3 (deploy path).
-    The deployment-hygiene properties (DebugType / DebugSymbols / GenerateDependencyFile)
-    still apply and are kept.
+    Target: Jeskola Buzz 1503, 32-bit. Buzz hosts managed machines on .NET Framework,
+    hence net48 + x86. Only the dll is produced (no .pdb, no .deps.json) and deployed
+    to the Buzz gear folder.
   -->
 
   <PropertyGroup>

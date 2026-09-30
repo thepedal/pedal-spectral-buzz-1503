@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pedal Spectral.NET")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.1.2.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.1.2+d689421dc985f220e15d2a2afb827adcbf9c9626")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.1.2+af740bb10d81afbb31d26ef21bf59db961f22495")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pedal Spectral.NET")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pedal Spectral.NET")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.1.2.0")]

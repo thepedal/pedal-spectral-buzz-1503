@@ -6,7 +6,7 @@ Version 1.1.2. Licensed under the GNU General Public License v3.0 (see `LICENSE`
 
 ## Target — read this first
 
-Unlike every other Pedal machine, this one is built for **Jeskola Buzz, not ReBuzz**. Jeskola Buzz hosts managed machines on .NET Framework, so the machine targets `net48` and `x86`, and deploys to the Buzz install rather than to `C:\Program Files\ReBuzz`. It will not load in a 64-bit Buzz, and this dll is not meant for ReBuzz.
+Built for **Jeskola Buzz 1503, 32-bit**. Buzz hosts managed machines on .NET Framework, so the machine targets `net48` and `x86`. It will not load in a 64-bit Buzz.
 
 ## Build and install
 
@@ -54,20 +54,14 @@ When the input goes silent (upstream muted, disconnected, or sending no audio), 
 
 - The audio thread does one channel mix and one ring-buffer store per sample, nothing else. All FFT work happens on the GUI thread at about 30 frames per second, and only while the parameter window is open.
 - The ring's write position is an `int`, not a `long`, because 64-bit reads and writes are not atomic in a 32-bit process.
-- Levels are normalised by the window's coherent gain, which is correct for reading tone peaks. (Pedal OSC's band energies use an energy normalisation instead; that is right for band sums, wrong for a line display.)
+- Levels are normalised by the window's coherent gain, which is correct for reading tone peaks. (An energy normalisation would be right for summing bands, but misreads tone levels on a line display.)
 - No `MathF`, `Span` or other .NET Core-only APIs, so no extra dlls are needed on .NET Framework.
 
-## Verified vs. not yet verified
+## Tested
 
-Verified off-target (headless, against stub interfaces): the analyser's calibration (Flat Top reads 0.00 dBFS for a full-scale sine, −20.02 for a −20 dB sine), slope, averaging and peak decay, the ring buffer across integer wraparound, pass-through, and the WM_NOIO path.
+Checked in Jeskola Buzz 1503 (32-bit): loads under Effects, the GUI embeds in the parameter window and fits its width, the About entry works, audio passes through unchanged, and muting the input silences the output and lets the traces fall away. Reference capture, smoothing, slope and peak reset were checked on live and frozen displays.
 
-**Not yet verified in Jeskola Buzz 1503.** The project's managed-machine notes were all written against ReBuzz source, so check these on first load:
-
-1. The machine appears in the Effects list (if not, check the dll is in `Gear\Effects` and look for a load error).
-2. The GUI is embedded at the top of the parameter window and updates live.
-3. The right-click **About...** entry appears. If it doesn't, the machine still works; only the menu entry is missing.
-4. Audio passes through bit-identical (A/B with the machine bypassed).
-5. Muting the upstream machine makes the traces fall.
+Checked headless against stub interfaces: calibration (Flat Top reads 0.00 dBFS for a full-scale sine, a −20 dB sine reads −20.1), slope, averaging and peak decay, smoothing continuity at the low end, reference re-mapping, and the ring buffer across integer wraparound.
 
 ## Files
 
@@ -76,9 +70,9 @@ Verified off-target (headless, against stub interfaces): the analyser's calibrat
 - `SpectralGui.cs`: the WPF display
 - `PedalSpectral.NET.csproj`: `net48`, `x86`, deploy to the Buzz gear folder
 
-## Jeskola Buzz vs ReBuzz: muted input
+## Buzz behaviour worth knowing: muted input
 
-In ReBuzz, a muted upstream machine produces `WM_NOIO` (Core §33). Jeskola Buzz 1503 instead keeps calling `Work()` with a mode that lacks the READ flag, and the input buffer still holds the last block from before the mute. Any effect that reads `input` without checking `(mode & WM_READ)` will loop that block to its output as a buzz. This machine checks the flag (v1.0.2); any future Jeskola-target effect must do the same.
+When an upstream machine is muted, Buzz 1503 does not send `WM_NOIO`. It keeps calling `Work()` with a mode that lacks the READ flag, and the input buffer still holds the last block from before the mute. Any effect that reads `input` without checking `(mode & WM_READ)` will loop that block to its output as a buzz. This machine checks the flag (since v1.0.2), and any managed effect for Buzz should do the same.
 
 ## Changelog
 

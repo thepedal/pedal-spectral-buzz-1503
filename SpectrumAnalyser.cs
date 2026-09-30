@@ -18,7 +18,7 @@ namespace PedalSpectral
     /// Calibration: a full-scale sine (amplitude 1.0 after the /32768 scale)
     /// reads 0 dBFS at its peak, via the window's COHERENT gain (sum of w).
     /// This is the right normalisation for a line spectrum; an energy
-    /// normalisation (as used for band sums in Pedal OSC) would be wrong here.
+    /// normalisation (right for summing bands) would misread tone levels.
     /// </summary>
     internal sealed class SpectrumAnalyser
     {

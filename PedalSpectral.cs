@@ -23,7 +23,8 @@ namespace PedalSpectral
         // ── Audio-thread handoff ───────────────────────────────────────────
         // Work() writes the selected channel, normalised to ±1.0, into this ring.
         // The GUI copies the newest N samples at its own frame rate and does all
-        // the FFT work on the UI thread. Instance fields only (Core §22).
+        // the FFT work on the UI thread. Instance fields only, never static, so
+        // several instances in one song don't share buffers.
         //
         // _writePos is a free-running int counter. It is deliberately NOT a long:
         // this is a 32-bit process, where a long read/write is not atomic. An int
@@ -39,13 +40,15 @@ namespace PedalSpectral
 
         public PedalSpectralMachine(IBuzzMachineHost host)
         {
-            this.host = host;   // nothing else: host.Machine is not ready yet (Core §16.1)
+            this.host = host;   // nothing else: host.Machine is not ready yet
         }
 
         // ── Parameters ─────────────────────────────────────────────────────
-        // Display-only: none affect the audio, so no smoothing (Core §32.8).
-        // No IsStateless (Core §25). No slash or angle brackets anywhere (Core §28).
-        // APPEND new parameters at the end only — preset indices (Build §3.3).
+        // Display-only: none affect the audio, so no parameter smoothing.
+        // No IsStateless (it hides a parameter from the window). No slash or angle
+        // brackets in names or descriptions (they break preset XML and tooltips).
+        // APPEND new parameters at the end only: presets and songs store parameters
+        // by index, so inserting one would shift every later value.
 
         [ParameterDecl(Name = "FFT Size", DefValue = 2,
             Description = "Transform length. Larger gives finer low-end resolution but slower response",
@@ -130,10 +133,9 @@ namespace PedalSpectral
         // combine and one ring store.
         public bool Work(Sample[] output, Sample[] input, int n, WorkModes mode)
         {
-            // Input is only valid when the READ flag is set. Jeskola Buzz, unlike
-            // ReBuzz (Core §33), does not send WM_NOIO for a muted upstream: it keeps
-            // calling Work() with WM_WRITE and an input buffer still holding the LAST
-            // block before the mute. Treating that as audio loops it to the output
+            // Input is only valid when the READ flag is set. Buzz does not send
+            // WM_NOIO for a muted upstream: it keeps calling Work() with WM_WRITE
+            // and an input buffer still holding the LAST block before the mute. Treating that as audio loops it to the output
             // (an audible buzz) and freezes the display on it (fixed in v1.0.2).
             //
             // Returning false tells the host the output is silent. The ring stops
@@ -142,9 +144,9 @@ namespace PedalSpectral
             if ((mode & WorkModes.WM_READ) == 0 || input == null) return false;
 
             var mi = host.MasterInfo;
-            if (mi != null && mi.SamplesPerSec > 0) _sampleRate = mi.SamplesPerSec;  // Core §29
+            if (mi != null && mi.SamplesPerSec > 0) _sampleRate = mi.SamplesPerSec;  // read every call; it can change at runtime
 
-            const float scale = 1f / 32768f;   // Buzz full scale is ±32768 (Core §38)
+            const float scale = 1f / 32768f;   // Buzz full scale is ±32768
             int ch = Channel;
             float[] ring = _ring;
             int w = Volatile.Read(ref _writePos);
