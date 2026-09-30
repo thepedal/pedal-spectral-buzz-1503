@@ -1,0 +1,7 @@
+C:\Users\lukep\Desktop\projex_2026\ReBuzz_pedal_machines\Pedal Spectral-buzz1503\pedalspectral\bin\Release\net48\Pedal Spectral.NET.dll
+C:\Users\lukep\Desktop\projex_2026\ReBuzz_pedal_machines\Pedal Spectral-buzz1503\pedalspectral\obj\Release\net48\PedalSpectral.NET.csproj.AssemblyReference.cache
+C:\Users\lukep\Desktop\projex_2026\ReBuzz_pedal_machines\Pedal Spectral-buzz1503\pedalspectral\obj\Release\net48\PedalSpectral.NET.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\lukep\Desktop\projex_2026\ReBuzz_pedal_machines\Pedal Spectral-buzz1503\pedalspectral\obj\Release\net48\PedalSpectral.NET.AssemblyInfoInputs.cache
+C:\Users\lukep\Desktop\projex_2026\ReBuzz_pedal_machines\Pedal Spectral-buzz1503\pedalspectral\obj\Release\net48\PedalSpectral.NET.AssemblyInfo.cs
+C:\Users\lukep\Desktop\projex_2026\ReBuzz_pedal_machines\Pedal Spectral-buzz1503\pedalspectral\obj\Release\net48\PedalSpectral.NET.csproj.CoreCompileInputs.cache
+C:\Users\lukep\Desktop\projex_2026\ReBuzz_pedal_machines\Pedal Spectral-buzz1503\pedalspectral\obj\Release\net48\Pedal Spectral.NET.dll
