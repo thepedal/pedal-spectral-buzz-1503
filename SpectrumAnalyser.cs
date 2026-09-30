@@ -24,15 +24,23 @@ namespace PedalSpectral
     {
         public const int MaxN = 8192;
 
+        // Zero-padding factor (v1.2). The N-sample windowed frame is transformed at
+        // Pad*N points. This interpolates the TRUE spectrum between the N-point bins
+        // (instead of drawing straight lines between them) without changing the
+        // calibration: the window's coherent gain is the same, so tones and noise read
+        // exactly as before. It does not add resolving power; only a longer window does.
+        public const int Pad = 4;
+        const int MaxFft = MaxN * Pad;
+
         public const int WinHann = 0;
         public const int WinBlackmanHarris = 1;
         public const int WinFlatTop = 2;
 
-        // FFT scratch + tables, sized once for MaxN
-        readonly double[] _re = new double[MaxN];
-        readonly double[] _im = new double[MaxN];
-        readonly double[] _cosTab = new double[MaxN / 2];
-        readonly double[] _sinTab = new double[MaxN / 2];
+        // FFT scratch + tables, sized once for the padded maximum
+        readonly double[] _re = new double[MaxFft];
+        readonly double[] _im = new double[MaxFft];
+        readonly double[] _cosTab = new double[MaxFft / 2];
+        readonly double[] _sinTab = new double[MaxFft / 2];
 
         // Current configuration
         int _n;
@@ -43,7 +51,7 @@ namespace PedalSpectral
         int _cols;
 
         // Per-bin averaged power (amplitude^2, sine peak = A^2)
-        readonly double[] _avgPow = new double[MaxN / 2 + 1];
+        readonly double[] _avgPow = new double[MaxFft / 2 + 1];   // per PADDED bin
         bool _havePow;
 
         // Per-column output
@@ -55,14 +63,14 @@ namespace PedalSpectral
         double[] _colFc = new double[0];   // column centre frequency
 
         // Prefix sums of _avgPow, for O(1) band means when smoothing
-        readonly double[] _cum = new double[MaxN / 2 + 2];
+        readonly double[] _cum = new double[MaxFft / 2 + 2];
 
         // Reference overlay. Since v1.1.1 it stores the captured SPECTRUM (per-bin
         // power), not the drawn trace, and is drawn through the current column
         // mapping, smoothing and slope — so both traces are always processed the
         // same way, whatever changes after the capture.
-        readonly double[] _refPow = new double[MaxN / 2 + 1];
-        readonly double[] _refCum = new double[MaxN / 2 + 2];
+        readonly double[] _refPow = new double[MaxFft / 2 + 1];
+        readonly double[] _refCum = new double[MaxFft / 2 + 2];
         int _refHalf;
         double _refBinHz;
         float[] _refOut = new float[0];
@@ -81,9 +89,9 @@ namespace PedalSpectral
 
         public SpectrumAnalyser()
         {
-            for (int i = 0; i < MaxN / 2; i++)
+            for (int i = 0; i < MaxFft / 2; i++)
             {
-                double a = -2.0 * Math.PI * i / MaxN;
+                double a = -2.0 * Math.PI * i / MaxFft;
                 _cosTab[i] = Math.Cos(a);
                 _sinTab[i] = Math.Sin(a);
             }
@@ -180,14 +188,16 @@ namespace PedalSpectral
         /// </summary>
         public void Process(float[] frame, double dt, double avgTau, double peakDecay, double slope, double smoothOct)
         {
-            int n = _n;
+            int n = _n, nf = n * Pad;
             for (int i = 0; i < n; i++) { _re[i] = frame[i] * _win[i]; _im[i] = 0.0; }
-            Fft(n);
+            Array.Clear(_re, n, nf - n);
+            Array.Clear(_im, n, nf - n);
+            Fft(nf);
 
             double norm = 2.0 / _coherentSum;
             double a = avgTau > 0.0 ? Math.Exp(-dt / avgTau) : 0.0;
             if (!_havePow) a = 0.0;   // first frame: snap, don't fade in from silence
-            int half = n / 2;
+            int half = nf / 2;
             for (int k = 0; k <= half; k++)
             {
                 double mr = _re[k] * norm, mi = _im[k] * norm;
@@ -202,15 +212,15 @@ namespace PedalSpectral
         public void ProcessSilence(double dt, double avgTau, double peakDecay, double slope, double smoothOct)
         {
             double a = avgTau > 0.0 ? Math.Exp(-dt / avgTau) : 0.0;
-            int half = _n / 2;
+            int half = _n * Pad / 2;
             for (int k = 0; k <= half; k++) _avgPow[k] *= a;
             MapColumns(dt, peakDecay, slope, smoothOct);
         }
 
         void MapColumns(double dt, double peakDecay, double slope, double smoothOct)
         {
-            int half = _n / 2;
-            double binHz = _sr / Math.Max(1, _n);
+            int half = _n * Pad / 2;
+            double binHz = _sr / Math.Max(1, _n * Pad);   // padded bin spacing
             double smoothHalf = smoothOct > 0.0 ? Math.Pow(2.0, smoothOct * 0.5) : 0.0;
             BuildCum(_avgPow, _cum, half);
 
@@ -305,11 +315,11 @@ namespace PedalSpectral
         public void CaptureReference()
         {
             if (_n == 0) return;
-            int half = _n / 2;
+            int half = _n * Pad / 2;
             Array.Copy(_avgPow, _refPow, half + 1);
             BuildCum(_refPow, _refCum, half);
             _refHalf = half;
-            _refBinHz = _sr / _n;
+            _refBinHz = _sr / (_n * Pad);
             HasReference = true;
         }
 
@@ -325,6 +335,41 @@ namespace PedalSpectral
             for (int i = 0; i < _refOut.Length; i++) _refOut[i] = Silent;
         }
 
+        /// <summary>
+        /// Strongest peak of the averaged spectrum between fLo and fHi. Refined by
+        /// parabolic interpolation on the dB values of the padded bins around the
+        /// maximum. Returns false if nothing is above minDb. Level is slope-free.
+        /// </summary>
+        public bool FindPeak(double fLo, double fHi, double minDb, out double freq, out double db)
+        {
+            freq = 0; db = Silent;
+            if (_n == 0 || !_havePow) return false;
+            int half = _n * Pad / 2;
+            double binHz = _sr / (_n * Pad);
+            int k0 = Math.Max(1, (int)Math.Ceiling(fLo / binHz));
+            int k1 = Math.Min(half - 1, (int)Math.Floor(fHi / binHz));
+            int best = -1; double bp = 0.0;
+            for (int k = k0; k <= k1; k++)
+            {
+                double p = _avgPow[k];
+                // must be a local maximum, so a slope running into the range edge
+                // is not reported as a peak
+                if (p > bp && p >= _avgPow[k - 1] && p >= _avgPow[k + 1]) { bp = p; best = k; }
+            }
+            if (best < 0 || bp <= 1e-20) return false;
+            double pk = 10.0 * Math.Log10(bp);
+            if (pk < minDb) return false;
+
+            double a = 10.0 * Math.Log10(Math.Max(_avgPow[best - 1], 1e-30));
+            double c = 10.0 * Math.Log10(Math.Max(_avgPow[best + 1], 1e-30));
+            double den = a - 2.0 * pk + c;
+            double off = den < 0.0 ? 0.5 * (a - c) / den : 0.0;
+            if (off > 0.5) off = 0.5; else if (off < -0.5) off = -0.5;
+            freq = (best + off) * binHz;
+            db = pk - 0.25 * (a - c) * off;
+            return true;
+        }
+
         public void ResetPeaks()
         {
             for (int i = 0; i < _peakDb.Length; i++) _peakDb[i] = Silent;
@@ -338,7 +383,7 @@ namespace PedalSpectral
             return FMin * Math.Pow(ratio, (c + 0.5) / _colDb.Length);
         }
 
-        // In-place iterative radix-2 complex FFT on _re/_im, length n (power of 2, <= MaxN)
+        // In-place iterative radix-2 complex FFT on _re/_im, length n (power of 2, <= MaxFft)
         void Fft(int n)
         {
             // bit reversal
@@ -356,7 +401,7 @@ namespace PedalSpectral
             for (int len = 2; len <= n; len <<= 1)
             {
                 int halfLen = len >> 1;
-                int step = MaxN / len;
+                int step = MaxFft / len;
                 for (int i = 0; i < n; i += len)
                 {
                     for (int k = 0; k < halfLen; k++)

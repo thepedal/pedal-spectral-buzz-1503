@@ -2,7 +2,7 @@
 
 Real-time spectrum analyser for **Jeskola Buzz 1503 (32-bit)**. It is an inline pass-through effect: insert it anywhere in the graph (just before Master to watch the whole mix, or after any single machine) and the audio passes through untouched while the parameter window shows the spectrum.
 
-Version 1.1.2. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
+Version 1.2.0. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
 
 ## Target — read this first
 
@@ -29,6 +29,8 @@ Only the dll is produced: `.pdb` and `.deps.json` generation is disabled.
 
 Insert it after the signal you want to see and open its parameter window. The main trace is teal and filled; the amber line is peak hold. Hover over the plot to read the frequency, the nearest note (A4 = 440 Hz, with the offset in cents) and the level. Double-click to clear the peak traces.
 
+**Peak label.** A marker sits on the strongest peak with its frequency and nearest note, e.g. `58.3 Hz   A#1 +2 ct`. The frequency is refined between bins, so it is accurate to a small fraction of a hertz on steady tones. Use Hann or Blackman-Harris for tuning: Flat Top's deliberately flat peak makes the frequency estimate drift by a few cents.
+
 **Reference overlay.** Switch **Reference** on to capture the current main trace as a dashed overlay; the live trace keeps running over it, and the hover readout shows both levels. Switch it off and on again to recapture. If Freeze is on, the frozen trace is captured. The reference stores the captured spectrum, not the drawn line, so it is always drawn through the current Smoothing and Slope: both traces are processed the same way even if you change those after capturing. Capture and compare at the **same FFT size**, though: tone levels read the same at any size, but noise and dense mixes read about 3 dB lower per doubling of FFT size, because the same energy is spread over twice as many bins. It is not saved with the song: after reloading, the badge reads REF empty until you switch Reference off and on again.
 
 The display state (reference, averages and peaks) now belongs to the machine, so it survives closing and reopening the parameter window. Analysis itself only runs while the window is open.
@@ -47,6 +49,7 @@ A full-scale sine reads 0 dBFS at its peak. The display runs from +6 dBFS at the
 | Freeze | off/on | Holds the display; audio still passes |
 | Smoothing | **Off**, 24th, 12th, 6th, 3rd oct | Averages power across that fraction of an octave. Great for tonal balance; tones read lower (a full-scale sine is about −7 dB at 1/6 oct), so switch it off to read exact tone levels |
 | Reference | off/on | Switching on captures the current trace as an overlay |
+| Peak Label | Off, **Low End**, Full Range | Marks the strongest peak with frequency and nearest note. Low End searches 20–250 Hz, for kick and bass tuning |
 
 When the input goes silent (upstream muted, disconnected, or sending no audio), the traces fall away instead of freezing on the last frame.
 
@@ -54,12 +57,15 @@ When the input goes silent (upstream muted, disconnected, or sending no audio), 
 
 - The audio thread does one channel mix and one ring-buffer store per sample, nothing else. All FFT work happens on the GUI thread at about 30 frames per second, and only while the parameter window is open.
 - The ring's write position is an `int`, not a `long`, because 64-bit reads and writes are not atomic in a 32-bit process.
+- Each frame is zero-padded to 4× the FFT size before transforming. That draws the true curve between bins (rather than straight lines at the low end), removes the up-to-1.4 dB scalloping loss between bins, and makes peak frequencies precise, all without changing levels or response time. It does not separate close tones; only a larger FFT Size does that.
 - Levels are normalised by the window's coherent gain, which is correct for reading tone peaks. (An energy normalisation would be right for summing bands, but misreads tone levels on a line display.)
 - No `MathF`, `Span` or other .NET Core-only APIs, so no extra dlls are needed on .NET Framework.
 
 ## Tested
 
 Checked in Jeskola Buzz 1503 (32-bit): loads under Effects, the GUI embeds in the parameter window and fits its width, the About entry works, audio passes through unchanged, and muting the input silences the output and lets the traces fall away. Reference capture, smoothing, slope and peak reset were checked on live and frozen displays.
+
+Version 1.2 (zero-padding, Peak Label) has so far only been checked headless: tones between bins read 0.00 dB, peak frequency exact for 41.2–110 Hz tones, noise levels unchanged from 1.1.2, reference still matches the live trace exactly.
 
 Checked headless against stub interfaces: calibration (Flat Top reads 0.00 dBFS for a full-scale sine, a −20 dB sine reads −20.1), slope, averaging and peak decay, smoothing continuity at the low end, reference re-mapping, and the ring buffer across integer wraparound.
 
@@ -75,6 +81,8 @@ Checked headless against stub interfaces: calibration (Flat Top reads 0.00 dBFS 
 When an upstream machine is muted, Buzz 1503 does not send `WM_NOIO`. It keeps calling `Work()` with a mode that lacks the READ flag, and the input buffer still holds the last block from before the mute. Any effect that reads `input` without checking `(mode & WM_READ)` will loop that block to its output as a buzz. This machine checks the flag (since v1.0.2), and any managed effect for Buzz should do the same.
 
 ## Changelog
+
+- **1.2.0**: 4× zero-padding: true curve shape at the low end instead of straight lines, no scalloping loss between bins, precise peak frequencies; levels and response time unchanged. New Peak Label parameter (appended) marks the strongest peak with frequency and note.
 
 - **1.1.2**: Peak-hold traces are cleared when FFT Size, Window, Slope or Smoothing changes; they previously kept the old levels (most visible on a frozen display). REF badge now reads REF, REF pending or REF empty.
 

@@ -18,7 +18,7 @@ namespace PedalSpectral
     [MachineDecl(Name = "Pedal Spectral", ShortName = "Spectral", Author = "thepedal")]
     public class PedalSpectralMachine : IBuzzMachine
     {
-        internal const string Version = "1.1.2";
+        internal const string Version = "1.2.0";
 
         // ── Audio-thread handoff ───────────────────────────────────────────
         // Work() writes the selected channel, normalised to ±1.0, into this ring.
@@ -114,6 +114,13 @@ namespace PedalSpectral
                 _reference = value;
             }
         }
+
+        // ── New in v1.2 — appended ──
+
+        [ParameterDecl(Name = "Peak Label", DefValue = 1,
+            Description = "Labels the strongest peak with its frequency and nearest note. Low End searches 20 to 250 Hz, for kick and bass tuning",
+            ValueDescriptions = new[] { "Off", "Low End", "Full Range" })]
+        public int PeakLabel { get; set; } = 1;
 
         // ── Display state ──────────────────────────────────────────────────
         // Owned by the machine, used only on the GUI thread, so the reference,

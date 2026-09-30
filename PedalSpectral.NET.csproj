@@ -14,7 +14,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>Pedal Spectral.NET</AssemblyName>
     <RootNamespace>PedalSpectral</RootNamespace>
-    <Version>1.1.2</Version>
+    <Version>1.2.0</Version>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <GenerateDependencyFile>false</GenerateDependencyFile>

@@ -82,6 +82,8 @@ namespace PedalSpectral
         readonly Brush _frozenBadge = Frozen(new SolidColorBrush(Color.FromRgb(0x5A, 0x8D, 0xEE)));
         readonly Pen _refPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0xA0, 0xB8, 0xC0, 0xCC)), 1)
                                       { DashStyle = DashStyles.Dash });
+        readonly Brush _labelBg = Frozen(new SolidColorBrush(Color.FromArgb(0xC8, 0x16, 0x18, 0x1C)));
+        readonly Brush _marker = Frozen(new SolidColorBrush(Color.FromRgb(0xE8, 0xEC, 0xF0)));
         readonly Brush _refBadge = Frozen(new SolidColorBrush(Color.FromRgb(0xB8, 0xC0, 0xCC)));
         readonly Typeface _face = new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
 
@@ -311,6 +313,11 @@ namespace PedalSpectral
                     }
                 }
 
+                // Peak label (v1.2)
+                int pl = Clamp(m.PeakLabel, 0, 2);
+                if (pl > 0) DrawPeakLabel(dc, pl == 1 ? 250.0 : _an.FMax, floor, ppd,
+                                          Slopes[Clamp(m.Slope, 0, Slopes.Length - 1)]);
+
                 // Status line
                 int n = FftSizes[Clamp(m.FftSize, 0, FftSizes.Length - 1)];
                 string status = "FFT " + n + "   " + _an.BinHz.ToString("0.0", CultureInfo.InvariantCulture) +
@@ -386,6 +393,37 @@ namespace PedalSpectral
                 double tx = Math.Min(Math.Max(x - ft.Width / 2, PlotL), W - ft.Width - 2);
                 dc.DrawText(ft, new Point(tx, PlotB + 4));
             }
+        }
+
+        void DrawPeakLabel(DrawingContext dc, double fHi, double floor, double ppd, double slope)
+        {
+            if (!_an.FindPeak(SpectrumAnalyser.FMin, fHi, -200.0, out double f, out double db0)) return;
+            double db = db0 + slope * Math.Log(f / 1000.0, 2.0);   // as displayed
+            if (db < floor + 6.0) return;                           // nothing worth labelling
+
+            double x = FreqToX(f), y = DbToY(db, floor);
+            if (x < PlotL || x > PlotR) return;
+
+            // Small downward triangle just above the curve
+            var tri = new StreamGeometry();
+            using (var ctx = tri.Open())
+            {
+                ctx.BeginFigure(new Point(x, y - 2), true, true);
+                ctx.LineTo(new Point(x - 4, y - 9), false, false);
+                ctx.LineTo(new Point(x + 4, y - 9), false, false);
+            }
+            tri.Freeze();
+            dc.DrawGeometry(_marker, null, tri);
+
+            string s = (f >= 1000 ? (f / 1000).ToString("0.00", CultureInfo.InvariantCulture) + " kHz"
+                                  : f.ToString("0.0", CultureInfo.InvariantCulture) + " Hz") +
+                       "   " + NoteName(f);
+            var ft = MakeText(s, _text, 11, ppd);
+            double tx = Math.Min(Math.Max(x - ft.Width / 2, PlotL + 2), PlotR - ft.Width - 2);
+            double ty = y - 12 - ft.Height;
+            if (ty < PlotT + 34) ty = y + 6;                         // no room above: go below
+            dc.DrawRectangle(_labelBg, null, new Rect(tx - 3, ty - 1, ft.Width + 6, ft.Height + 2));
+            dc.DrawText(ft, new Point(tx, ty));
         }
 
         FormattedText MakeText(string s, Brush b, double size, double ppd) =>
