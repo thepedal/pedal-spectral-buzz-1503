@@ -63,6 +63,9 @@ namespace PedalSpectral
         int _lastWritePos;
         bool _haveWritePos;
         int _lastPeakMode = -99;
+        // Peak traces record what was DISPLAYED, so any change to how the display
+        // is computed invalidates them (v1.1.2). Packed: fft, window, slope, smoothing.
+        int _lastDisplayKey = -1;
         Point? _mouse;
 
         // Frozen drawing resources
@@ -93,7 +96,11 @@ namespace PedalSpectral
                 _m = value?.ManagedMachine as PedalSpectralMachine;
                 _an = _m != null ? _m.Analyser : _fallback;
                 // Don't wipe the machine's peak traces just because the window reopened.
-                if (_m != null) _lastPeakMode = Clamp(_m.PeakDecay, 0, PeakRates.Length - 1);
+                if (_m != null)
+                {
+                    _lastPeakMode = Clamp(_m.PeakDecay, 0, PeakRates.Length - 1);
+                    _lastDisplayKey = DisplayKey(_m);
+                }
                 _haveWritePos = false;
             }
         }
@@ -149,7 +156,13 @@ namespace PedalSpectral
             double peak = PeakRates[pkIdx];
             double slope = Slopes[Clamp(m.Slope, 0, Slopes.Length - 1)];
             double smooth = SmoothOcts[Clamp(m.Smoothing, 0, SmoothOcts.Length - 1)];
-            if (pkIdx != _lastPeakMode) { _an.ResetPeaks(); _lastPeakMode = pkIdx; }
+            int key = DisplayKey(m);
+            if (pkIdx != _lastPeakMode || key != _lastDisplayKey)
+            {
+                _an.ResetPeaks();
+                _lastPeakMode = pkIdx;
+                _lastDisplayKey = key;
+            }
 
             // Reference: a rising edge on the parameter queues a capture, taken
             // from the next frame of live audio (or immediately, if frozen).
@@ -202,6 +215,9 @@ namespace PedalSpectral
             string name = NoteNames[((n % 12) + 12) % 12] + oct.ToString(CultureInfo.InvariantCulture);
             return name + (cents >= 0 ? " +" : " ") + cents.ToString(CultureInfo.InvariantCulture) + " ct";
         }
+
+        static int DisplayKey(PedalSpectralMachine m) =>
+            (m.FftSize & 0xFF) | ((m.Window & 0xFF) << 8) | ((m.Slope & 0xFF) << 16) | ((m.Smoothing & 0xFF) << 24);
 
         static int Clamp(int v, int lo, int hi) => v < lo ? lo : (v > hi ? hi : v);
 
@@ -316,7 +332,8 @@ namespace PedalSpectral
                 }
                 if (m.Reference)
                 {
-                    var ft = MakeText(_an.HasReference ? "REF" : "REF pending", _refBadge, 10, ppd);
+                    string rt = _an.HasReference ? "REF" : (_pendingCapture ? "REF pending" : "REF empty");
+                    var ft = MakeText(rt, _refBadge, 10, ppd);
                     badgeX -= ft.Width;
                     dc.DrawText(ft, new Point(badgeX, badgeY));
                 }

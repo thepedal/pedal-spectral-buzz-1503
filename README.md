@@ -2,7 +2,7 @@
 
 Real-time spectrum analyser for **Jeskola Buzz 1503 (32-bit)**. It is an inline pass-through effect: insert it anywhere in the graph (just before Master to watch the whole mix, or after any single machine) and the audio passes through untouched while the parameter window shows the spectrum.
 
-Version 1.1.1. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
+Version 1.1.2. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
 
 ## Target — read this first
 
@@ -29,7 +29,7 @@ Only the dll is produced: `.pdb` and `.deps.json` generation is disabled.
 
 Insert it after the signal you want to see and open its parameter window. The main trace is teal and filled; the amber line is peak hold. Hover over the plot to read the frequency, the nearest note (A4 = 440 Hz, with the offset in cents) and the level. Double-click to clear the peak traces.
 
-**Reference overlay.** Switch **Reference** on to capture the current main trace as a dashed overlay; the live trace keeps running over it, and the hover readout shows both levels. Switch it off and on again to recapture. If Freeze is on, the frozen trace is captured. The reference stores the captured spectrum, not the drawn line, so it is always drawn through the current Smoothing and Slope: both traces are processed the same way even if you change those after capturing. Capture and compare at the **same FFT size**, though: tone levels read the same at any size, but noise and dense mixes read about 3 dB lower per doubling of FFT size, because the same energy is spread over twice as many bins. It is not saved with the song: after reloading, the overlay is empty until you switch Reference on again.
+**Reference overlay.** Switch **Reference** on to capture the current main trace as a dashed overlay; the live trace keeps running over it, and the hover readout shows both levels. Switch it off and on again to recapture. If Freeze is on, the frozen trace is captured. The reference stores the captured spectrum, not the drawn line, so it is always drawn through the current Smoothing and Slope: both traces are processed the same way even if you change those after capturing. Capture and compare at the **same FFT size**, though: tone levels read the same at any size, but noise and dense mixes read about 3 dB lower per doubling of FFT size, because the same energy is spread over twice as many bins. It is not saved with the song: after reloading, the badge reads REF empty until you switch Reference off and on again.
 
 The display state (reference, averages and peaks) now belongs to the machine, so it survives closing and reopening the parameter window. Analysis itself only runs while the window is open.
 
@@ -81,6 +81,8 @@ Verified off-target (headless, against stub interfaces): the analyser's calibrat
 In ReBuzz, a muted upstream machine produces `WM_NOIO` (Core §33). Jeskola Buzz 1503 instead keeps calling `Work()` with a mode that lacks the READ flag, and the input buffer still holds the last block from before the mute. Any effect that reads `input` without checking `(mode & WM_READ)` will loop that block to its output as a buzz. This machine checks the flag (v1.0.2); any future Jeskola-target effect must do the same.
 
 ## Changelog
+
+- **1.1.2**: Peak-hold traces are cleared when FFT Size, Window, Slope or Smoothing changes; they previously kept the old levels (most visible on a frozen display). REF badge now reads REF, REF pending or REF empty.
 
 - **1.1.1**: The reference now stores the spectrum and is drawn through the current Smoothing and Slope, so a reference captured unsmoothed matches a smoothed live trace. Removed flat steps at the low end with smoothing on (bands narrower than one bin now interpolate continuously). REF and FROZEN badges moved to the second row so a long status line can't overlap them.
 

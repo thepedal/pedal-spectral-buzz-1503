@@ -18,7 +18,7 @@ namespace PedalSpectral
     [MachineDecl(Name = "Pedal Spectral", ShortName = "Spectral", Author = "thepedal")]
     public class PedalSpectralMachine : IBuzzMachine
     {
-        internal const string Version = "1.1.1";
+        internal const string Version = "1.1.2";
 
         // ── Audio-thread handoff ───────────────────────────────────────────
         // Work() writes the selected channel, normalised to ±1.0, into this ring.
