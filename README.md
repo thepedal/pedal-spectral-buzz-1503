@@ -2,7 +2,7 @@
 
 Real-time spectrum analyser for **Jeskola Buzz 1503 (32-bit)**. It is an inline pass-through effect: insert it anywhere in the graph (just before Master to watch the whole mix, or after any single machine) and the audio passes through untouched while the parameter window shows the spectrum.
 
-Version 1.0.2. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
+Version 1.1.1. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
 
 ## Target — read this first
 
@@ -27,7 +27,11 @@ Only the dll is produced: `.pdb` and `.deps.json` generation is disabled.
 
 ## Using it
 
-Insert it after the signal you want to see and open its parameter window. The main trace is teal and filled; the amber line is peak hold. Hover over the plot for a frequency and level readout, and double-click to clear the peak traces.
+Insert it after the signal you want to see and open its parameter window. The main trace is teal and filled; the amber line is peak hold. Hover over the plot to read the frequency, the nearest note (A4 = 440 Hz, with the offset in cents) and the level. Double-click to clear the peak traces.
+
+**Reference overlay.** Switch **Reference** on to capture the current main trace as a dashed overlay; the live trace keeps running over it, and the hover readout shows both levels. Switch it off and on again to recapture. If Freeze is on, the frozen trace is captured. The reference stores the captured spectrum, not the drawn line, so it is always drawn through the current Smoothing and Slope: both traces are processed the same way even if you change those after capturing. Capture and compare at the **same FFT size**, though: tone levels read the same at any size, but noise and dense mixes read about 3 dB lower per doubling of FFT size, because the same energy is spread over twice as many bins. It is not saved with the song: after reloading, the overlay is empty until you switch Reference on again.
+
+The display state (reference, averages and peaks) now belongs to the machine, so it survives closing and reopening the parameter window. Analysis itself only runs while the window is open.
 
 A full-scale sine reads 0 dBFS at its peak. The display runs from +6 dBFS at the top down to the Range setting.
 
@@ -41,6 +45,8 @@ A full-scale sine reads 0 dBFS at its peak. The display runs from +6 dBFS at the
 | Slope | **0**, 3, 4.5, 6 dB per oct | Display tilt around 1 kHz; 4.5 makes a typical mix read roughly flat |
 | Range | −60, −72, **−96**, −120 dB | Bottom of the display |
 | Freeze | off/on | Holds the display; audio still passes |
+| Smoothing | **Off**, 24th, 12th, 6th, 3rd oct | Averages power across that fraction of an octave. Great for tonal balance; tones read lower (a full-scale sine is about −7 dB at 1/6 oct), so switch it off to read exact tone levels |
+| Reference | off/on | Switching on captures the current trace as an overlay |
 
 When the input goes silent (upstream muted, disconnected, or sending no audio), the traces fall away instead of freezing on the last frame.
 
@@ -75,6 +81,10 @@ Verified off-target (headless, against stub interfaces): the analyser's calibrat
 In ReBuzz, a muted upstream machine produces `WM_NOIO` (Core §33). Jeskola Buzz 1503 instead keeps calling `Work()` with a mode that lacks the READ flag, and the input buffer still holds the last block from before the mute. Any effect that reads `input` without checking `(mode & WM_READ)` will loop that block to its output as a buzz. This machine checks the flag (v1.0.2); any future Jeskola-target effect must do the same.
 
 ## Changelog
+
+- **1.1.1**: The reference now stores the spectrum and is drawn through the current Smoothing and Slope, so a reference captured unsmoothed matches a smoothed live trace. Removed flat steps at the low end with smoothing on (bands narrower than one bin now interpolate continuously). REF and FROZEN badges moved to the second row so a long status line can't overlap them.
+
+- **1.1.0**: Note name and cents in the hover readout. Reference overlay (new Reference switch). Fractional-octave smoothing (new Smoothing parameter). Both parameters are appended, so presets and songs from 1.0.x load unchanged. Display state now survives closing the parameter window.
 
 - **1.0.2**: Fixed a buzz and a frozen display when the input is muted. Jeskola Buzz keeps calling `Work()` without the READ flag, and 1.0.1 treated the stale input buffer as audio, looping it to the output. Input is now used only when the READ flag is set.
 

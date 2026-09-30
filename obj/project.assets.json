@@ -419,7 +419,7 @@
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
-    "version": "1.0.2",
+    "version": "1.1.1",
     "restore": {
       "projectUniqueName": "C:\\Users\\lukep\\Desktop\\projex_2026\\ReBuzz_pedal_machines\\Pedal Spectral-buzz1503\\pedalspectral\\PedalSpectral.NET.csproj",
       "projectName": "Pedal Spectral.NET",

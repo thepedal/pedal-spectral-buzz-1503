@@ -18,7 +18,7 @@ namespace PedalSpectral
     [MachineDecl(Name = "Pedal Spectral", ShortName = "Spectral", Author = "thepedal")]
     public class PedalSpectralMachine : IBuzzMachine
     {
-        internal const string Version = "1.0.2";
+        internal const string Version = "1.1.1";
 
         // ── Audio-thread handoff ───────────────────────────────────────────
         // Work() writes the selected channel, normalised to ±1.0, into this ring.
@@ -86,6 +86,45 @@ namespace PedalSpectral
             Description = "Hold the display. Audio keeps passing through")]
         public bool Freeze { get; set; } = false;
 
+        // ── New in v1.1 — appended at the end so v1.0 parameter indices stay valid ──
+
+        [ParameterDecl(Name = "Smoothing", DefValue = 0,
+            Description = "Fractional-octave smoothing. A sixth or a third of an octave shows the tonal balance of a mix",
+            ValueDescriptions = new[] { "Off", "24th oct", "12th oct", "6th oct", "3rd oct" })]
+        public int Smoothing { get; set; } = 0;
+
+        bool _reference;
+        volatile bool _captureRequested;
+        volatile bool _started;
+
+        [ParameterDecl(Name = "Reference", DefValue = false,
+            Description = "Switching on captures the current trace as a dimmed overlay. Switch off and on again to recapture")]
+        public bool Reference
+        {
+            get => _reference;
+            set
+            {
+                // Rising edge requests a capture. Ignored before the first Work(),
+                // so restoring a saved song with Reference on doesn't capture
+                // whatever happens to be in the display at load time.
+                if (value && !_reference && _started) _captureRequested = true;
+                _reference = value;
+            }
+        }
+
+        // ── Display state ──────────────────────────────────────────────────
+        // Owned by the machine, used only on the GUI thread, so the reference,
+        // averages and peaks survive closing and reopening the parameter window.
+        internal readonly SpectrumAnalyser Analyser = new SpectrumAnalyser();
+
+        /// <summary>GUI thread: returns true once per requested capture.</summary>
+        internal bool TakeCaptureRequest()
+        {
+            if (!_captureRequested) return false;
+            _captureRequested = false;
+            return true;
+        }
+
         // ── Audio ──────────────────────────────────────────────────────────
         // Transparent pass-through. The only per-sample work is one channel
         // combine and one ring store.
@@ -99,6 +138,7 @@ namespace PedalSpectral
             //
             // Returning false tells the host the output is silent. The ring stops
             // advancing, so the GUI lets the traces fall — zero cost here.
+            _started = true;
             if ((mode & WorkModes.WM_READ) == 0 || input == null) return false;
 
             var mi = host.MasterInfo;

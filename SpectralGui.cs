@@ -44,12 +44,18 @@ namespace PedalSpectral
         static readonly double[] Floors = { -60.0, -72.0, -96.0, -120.0 };
         static readonly string[] WinNames = { "Hann", "Blackman-Harris", "Flat Top" };
         static readonly string[] ChanNames = { "Mid", "Left", "Right", "Side" };
+        static readonly double[] SmoothOcts = { 0.0, 1.0 / 24, 1.0 / 12, 1.0 / 6, 1.0 / 3 };
+        static readonly string[] SmoothNames = { "", "1/24 oct", "1/12 oct", "1/6 oct", "1/3 oct" };
+        static readonly string[] NoteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
         static readonly double[] GridFreqs = { 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000 };
 
         IMachine _iMachine;
         PedalSpectralMachine _m;
 
-        readonly SpectrumAnalyser _an = new SpectrumAnalyser();
+        // The analyser lives on the machine (v1.1) so its state outlives this window.
+        readonly SpectrumAnalyser _fallback = new SpectrumAnalyser();
+        SpectrumAnalyser _an;
+        bool _pendingCapture;
         readonly float[] _frame = new float[SpectrumAnalyser.MaxN];
         readonly DispatcherTimer _timer;
         readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -71,6 +77,9 @@ namespace PedalSpectral
         readonly Pen _peakPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0xC0, 0xE0, 0xA0, 0x40)), 1));
         readonly Pen _cursorPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0x80, 0xC9, 0xD1, 0xD9)), 1));
         readonly Brush _frozenBadge = Frozen(new SolidColorBrush(Color.FromRgb(0x5A, 0x8D, 0xEE)));
+        readonly Pen _refPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0xA0, 0xB8, 0xC0, 0xCC)), 1)
+                                      { DashStyle = DashStyles.Dash });
+        readonly Brush _refBadge = Frozen(new SolidColorBrush(Color.FromRgb(0xB8, 0xC0, 0xCC)));
         readonly Typeface _face = new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
 
         static T Frozen<T>(T f) where T : Freezable { f.Freeze(); return f; }
@@ -82,6 +91,9 @@ namespace PedalSpectral
             {
                 _iMachine = value;
                 _m = value?.ManagedMachine as PedalSpectralMachine;
+                _an = _m != null ? _m.Analyser : _fallback;
+                // Don't wipe the machine's peak traces just because the window reopened.
+                if (_m != null) _lastPeakMode = Clamp(_m.PeakDecay, 0, PeakRates.Length - 1);
                 _haveWritePos = false;
             }
         }
@@ -90,6 +102,7 @@ namespace PedalSpectral
         {
             Height = H;
             MinWidth = MinW;
+            _an = _fallback;
             SnapsToDevicePixels = true;
             UseLayoutRounding = true;
             ClipToBounds = true;
@@ -135,9 +148,27 @@ namespace PedalSpectral
             int pkIdx = Clamp(m.PeakDecay, 0, PeakRates.Length - 1);
             double peak = PeakRates[pkIdx];
             double slope = Slopes[Clamp(m.Slope, 0, Slopes.Length - 1)];
+            double smooth = SmoothOcts[Clamp(m.Smoothing, 0, SmoothOcts.Length - 1)];
             if (pkIdx != _lastPeakMode) { _an.ResetPeaks(); _lastPeakMode = pkIdx; }
 
-            if (m.Freeze) { InvalidateVisual(); return; }
+            // Reference: a rising edge on the parameter queues a capture, taken
+            // from the next frame of live audio (or immediately, if frozen).
+            if (m.TakeCaptureRequest()) _pendingCapture = true;
+            if (!m.Reference)
+            {
+                _pendingCapture = false;
+                if (_an.HasReference) _an.ClearReference();
+            }
+
+            if (m.Freeze)
+            {
+                if (_pendingCapture) { _an.CaptureReference(); _pendingCapture = false; }
+                // Re-map the held spectrum so Slope, Smoothing and a new reference
+                // still take effect on a frozen display.
+                _an.Refresh(peak, slope, smooth);
+                InvalidateVisual();
+                return;
+            }
 
             int w = m.WritePos;
             if (!_haveWritePos) { _lastWritePos = w; _haveWritePos = true; _lastNewData = now; }
@@ -147,16 +178,29 @@ namespace PedalSpectral
                 _lastWritePos = w;
                 _lastNewData = now;
                 m.CopyLatest(_frame, n, w);
-                _an.Process(_frame, dt, tau, peak, slope);
+                _an.Process(_frame, dt, tau, peak, slope, smooth);
+                if (_pendingCapture) { _an.CaptureReference(); _an.Refresh(peak, slope, smooth); _pendingCapture = false; }
             }
             else if (now - _lastNewData > 0.15)
             {
                 // Ring stopped advancing: WM_NOIO, muted, or disconnected. Let traces fall.
                 // The 150 ms grace keeps large host buffers from flickering the display.
-                _an.ProcessSilence(dt, tau, peak, slope);
+                _an.ProcessSilence(dt, tau, peak, slope, smooth);
             }
 
             InvalidateVisual();
+        }
+
+        /// <summary>Nearest equal-tempered note, A4 = 440 Hz, e.g. A1 +6 ct.</summary>
+        static string NoteName(double f)
+        {
+            if (f <= 0) return "";
+            double midi = 69.0 + 12.0 * Math.Log(f / 440.0, 2.0);
+            int n = (int)Math.Round(midi);
+            int cents = (int)Math.Round((midi - n) * 100.0);
+            int oct = (int)Math.Floor(n / 12.0) - 1;
+            string name = NoteNames[((n % 12) + 12) % 12] + oct.ToString(CultureInfo.InvariantCulture);
+            return name + (cents >= 0 ? " +" : " ") + cents.ToString(CultureInfo.InvariantCulture) + " ct";
         }
 
         static int Clamp(int v, int lo, int hi) => v < lo ? lo : (v > hi ? hi : v);
@@ -191,7 +235,7 @@ namespace PedalSpectral
                 DrawGrid(dc, floor, ppd);
                 if (m == null) return;
 
-                float[] main = _an.Main, pk = _an.Peak;
+                float[] main = _an.Main, pk = _an.Peak, rf = _an.Reference;
                 int cols = main.Length;
                 if (cols > 1)
                 {
@@ -217,6 +261,25 @@ namespace PedalSpectral
                     lineG.Freeze();
                     dc.DrawGeometry(null, _line, lineG);
 
+                    // Reference overlay
+                    if (m.Reference && _an.HasReference && rf.Length == cols)
+                    {
+                        var refG = new StreamGeometry();
+                        using (var ctx = refG.Open())
+                        {
+                            bool open = false;
+                            for (int c = 0; c < cols; c++)
+                            {
+                                if (rf[c] <= -199f) { open = false; continue; }
+                                var pt = new Point(PlotL + c + 0.5, DbToY(rf[c], floor));
+                                if (!open) { ctx.BeginFigure(pt, false, false); open = true; }
+                                else ctx.LineTo(pt, true, false);
+                            }
+                        }
+                        refG.Freeze();
+                        dc.DrawGeometry(null, _refPen, refG);
+                    }
+
                     // Peak-hold trace
                     if (Clamp(m.PeakDecay, 0, PeakRates.Length - 1) != 0)
                     {
@@ -237,10 +300,26 @@ namespace PedalSpectral
                 string status = "FFT " + n + "   " + _an.BinHz.ToString("0.0", CultureInfo.InvariantCulture) +
                                 " Hz bins   " + WinNames[Clamp(m.Window, 0, 2)] + "   " +
                                 ChanNames[Clamp(m.Channel, 0, 3)];
+                string sm = SmoothNames[Clamp(m.Smoothing, 0, SmoothNames.Length - 1)];
+                if (sm.Length > 0) status += "   " + sm;
                 DrawText(dc, status, PlotL + 6, PlotT + 4, _label, 10, ppd);
 
+                // Badges sit on the second row, right-aligned, so a long status
+                // line can never run into them (v1.1.1).
+                double badgeX = PlotR - 6, badgeY = PlotT + 18;
                 if (m.Freeze)
-                    DrawText(dc, "FROZEN", PlotR - 50, PlotT + 4, _frozenBadge, 10, ppd);
+                {
+                    var ft = MakeText("FROZEN", _frozenBadge, 10, ppd);
+                    badgeX -= ft.Width;
+                    dc.DrawText(ft, new Point(badgeX, badgeY));
+                    badgeX -= 10;
+                }
+                if (m.Reference)
+                {
+                    var ft = MakeText(_an.HasReference ? "REF" : "REF pending", _refBadge, 10, ppd);
+                    badgeX -= ft.Width;
+                    dc.DrawText(ft, new Point(badgeX, badgeY));
+                }
 
                 // Hover readout
                 if (_mouse.HasValue && cols > 0)
@@ -254,7 +333,10 @@ namespace PedalSpectral
                         string fs = f >= 1000 ? (f / 1000).ToString("0.00", CultureInfo.InvariantCulture) + " kHz"
                                               : f.ToString("0", CultureInfo.InvariantCulture) + " Hz";
                         string ds = main[c] <= -199f ? "-inf dB" : main[c].ToString("0.0", CultureInfo.InvariantCulture) + " dB";
-                        DrawText(dc, fs + "   " + ds, PlotL + 6, PlotT + 18, _text, 11, ppd);
+                        string line = fs + "   " + NoteName(f) + "   " + ds;
+                        if (m.Reference && _an.HasReference && c < rf.Length && rf[c] > -199f)
+                            line += "   ref " + rf[c].ToString("0.0", CultureInfo.InvariantCulture) + " dB";
+                        DrawText(dc, line, PlotL + 6, PlotT + 18, _text, 11, ppd);
                     }
                 }
             }
