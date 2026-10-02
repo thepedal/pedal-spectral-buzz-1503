@@ -223,6 +223,20 @@ namespace PedalSpectral
             if (double.IsNaN(Height) || Math.Abs(Height - wantH) > 0.5) ApplyHeight(wantH);
             _ticked = true;   // window is up: dragged widths may now be recorded
 
+            // Display Width moved on the slider (v1.5.1): apply it as an explicit Width
+            // for a few frames, so Buzz resizes the window as it does for height, then
+            // release it so dragging works again. The first tick only notes the value
+            // the window opened with.
+            int widx = Clamp(m.DisplayWidth, 0, WidthMaxIdx);
+            if (_appliedWidthIdx < 0) _appliedWidthIdx = widx;
+            else if (widx != _appliedWidthIdx)
+            {
+                _appliedWidthIdx = widx;
+                Width = WidthBase + WidthStep * widx;
+                _releaseWidthIn = 3;
+            }
+            if (_releaseWidthIn > 0 && --_releaseWidthIn == 0) Width = double.NaN;
+
             double now = _clock.Elapsed.TotalSeconds;
             double dt = Math.Min(0.25, Math.Max(0.001, now - _lastTick));
             _lastTick = now;
@@ -344,6 +358,24 @@ namespace PedalSpectral
             return p;
         }
 
+        // Buzz's play state via Machine.Graph.Buzz.Playing. If that isn't available
+        // in this host, treat it as playing (keep scrolling) and stop asking.
+        bool _playStateUnavailable;
+
+        bool IsPlaying()
+        {
+            if (_playStateUnavailable) return true;
+            try { return PlayingCore(); }
+            catch { _playStateUnavailable = true; return true; }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        bool PlayingCore()
+        {
+            var buzz = _iMachine?.Graph?.Buzz;
+            return buzz == null || buzz.Playing;
+        }
+
         static readonly double[] RowIntervals = { 0.0, 0.1, 1.0 / 3.0 };   // Normal (every frame), Slow, Very Slow
 
         bool EnsureGram()
@@ -375,6 +407,8 @@ namespace PedalSpectral
         void GramTick(PedalSpectralMachine m)
         {
             if (!EnsureGram()) return;
+            // Pause with the transport (v1.5.1). The gap shows in the time markers.
+            if (!IsPlaying()) return;
             float[] main = _an.Main, acc = _gs.Acc;
             for (int c = 0; c < _gW; c++) if (main[c] > acc[c]) acc[c] = main[c];
 
@@ -437,11 +471,13 @@ namespace PedalSpectral
         // layout passes can't overwrite the saved width.
         bool _ticked;
         bool _widthWritePending;
+        int _appliedWidthIdx = -1;   // Display Width value the window currently reflects
+        int _releaseWidthIn;         // frames until an explicit Width is released
 
         void RecordWidth(double w)
         {
             var m = _m;
-            if (m == null || !_ticked || _widthWritePending) return;
+            if (m == null || !_ticked || _widthWritePending || _releaseWidthIn > 0) return;
             int idx = (int)Math.Round((w - WidthBase) / WidthStep);
             idx = Clamp(idx, 0, WidthMaxIdx);
             if (idx == m.DisplayWidth) return;
@@ -450,7 +486,11 @@ namespace PedalSpectral
             {
                 _widthWritePending = false;
                 int now = Clamp((int)Math.Round((W - WidthBase) / WidthStep), 0, WidthMaxIdx);
-                if (_m != null && now != _m.DisplayWidth) SetOwnParameter("Display Width", now);
+                if (_m != null && now != _m.DisplayWidth)
+                {
+                    _appliedWidthIdx = now;   // our own write: not a slider move
+                    SetOwnParameter("Display Width", now);
+                }
             }), DispatcherPriority.Background);
         }
 
