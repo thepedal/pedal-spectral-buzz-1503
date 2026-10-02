@@ -90,10 +90,20 @@ namespace PedalSpectral
         // Circular: each frame writes ONE bitmap row at _head, and drawing shows the
         // bitmap in two slices so the newest row is on top. Cost per frame is one
         // row upload, whatever the window size.
-        WriteableBitmap _gram;
-        int[] _rowPx = new int[0];
-        double[] _rowTime = new double[0];   // indexed by bitmap row
-        int _gW, _gH, _head;
+        //
+        // Since v1.4.2 the state lives on the machine (SpectrogramState), so the
+        // history survives closing and reopening the window. These properties keep
+        // the drawing code unchanged.
+        SpectrogramState _gs = new SpectrogramState();
+        WriteableBitmap _gram { get => _gs.Bmp; set => _gs.Bmp = value; }
+        int[] _rowPx { get => _gs.RowPx; set => _gs.RowPx = value; }
+        double[] _rowTime { get => _gs.RowTime; set => _gs.RowTime = value; }   // by bitmap row
+        int _gW { get => _gs.W; set => _gs.W = value; }
+        int _gH { get => _gs.H; set => _gs.H = value; }
+        int _head { get => _gs.Head; set => _gs.Head = value; }
+
+        // Row times use the machine's clock, so ages stay right across reopens.
+        double Now => _m != null ? _m.Clock.Elapsed.TotalSeconds : _clock.Elapsed.TotalSeconds;
         static readonly int[] Palette = BuildPalette();
 
         // Frozen drawing resources
@@ -128,6 +138,15 @@ namespace PedalSpectral
                 _iMachine = value;
                 _m = value?.ManagedMachine as PedalSpectralMachine;
                 _an = _m != null ? _m.Analyser : _fallback;
+                if (_m != null)
+                {
+                    if (_m.Gram == null) _m.Gram = new SpectrogramState();
+                    _gs = _m.Gram;
+                    // A bitmap belongs to the thread that made it; start afresh if
+                    // this window lives on another one.
+                    if (_gs.Bmp != null && !_gs.Bmp.CheckAccess()) _gs.Bmp = null;
+                }
+                else _gs = new SpectrogramState();
                 // Don't wipe the machine's peak traces just because the window reopened.
                 if (_m != null)
                 {
@@ -256,7 +275,7 @@ namespace PedalSpectral
                 _an.ProcessSilence(dt, tau, peak, slope, smooth);
             }
 
-            if (_showGram) AddGramRow(Floors[Clamp(m.Range, 0, Floors.Length - 1)], now);
+            if (_showGram) AddGramRow(Floors[Clamp(m.Range, 0, Floors.Length - 1)], Now);
 
             InvalidateVisual();
         }
@@ -405,6 +424,7 @@ namespace PedalSpectral
                 }
 
                 DrawGrid(dc, floor, ppd);
+                if (_showGram) DrawTimeAxis(dc, ppd);
                 if (m == null) return;
 
                 float[] main = _an.Main, pk = _an.Peak, rf = _an.Reference;
@@ -522,7 +542,7 @@ namespace PedalSpectral
                             {
                                 double t0 = _rowTime[(_head + r) % _gH];
                                 if (!double.IsNaN(t0))
-                                    line += "   " + (_clock.Elapsed.TotalSeconds - t0).ToString("0.0", CultureInfo.InvariantCulture) + " s ago";
+                                    line += "   " + (Now - t0).ToString("0.0", CultureInfo.InvariantCulture) + " s ago";
                             }
                             dc.DrawLine(_cursorPen, new Point(PlotL, Math.Round(p.Y) + 0.5), new Point(PlotL + cols, Math.Round(p.Y) + 0.5));
                         }
@@ -574,6 +594,53 @@ namespace PedalSpectral
                 var ft = MakeText(s, _label, 10, ppd);
                 double tx = Math.Min(Math.Max(x - ft.Width / 2, PlotL), W - ft.Width - 2);
                 dc.DrawText(ft, new Point(tx, PlotB + 4));
+            }
+        }
+
+        static readonly double[] TimeSteps = { 1, 2, 5, 10, 15, 30, 60, 120, 300 };
+
+        /// <summary>
+        /// Time markers down the left of the spectrogram, from the recorded time of
+        /// each row (so they stay right if the frame rate dips, and a gap while the
+        /// window was closed shows as a jump).
+        /// </summary>
+        void DrawTimeAxis(DrawingContext dc, double ppd)
+        {
+            if (_gram == null || _gW != _an.Main.Length || _rowTime.Length != _gH) return;
+            int h = _gH;
+            double now = Now;
+
+            int last = -1;
+            for (int r = h - 1; r >= 0; r--)
+                if (!double.IsNaN(_rowTime[(_head + r) % h])) { last = r; break; }
+            if (last < 0) return;
+            // Scroll rate from the newest rows only (up to 60), so a gap further
+            // down (window was closed) doesn't make the labels coarse. ~30 until
+            // there is enough history.
+            int r0 = Math.Min(last, 60);
+            double span = _rowTime[_head % h] - _rowTime[(_head + r0) % h];
+            double pxPerSec = (r0 > 10 && span > 0.2) ? r0 / span : 30.0;
+
+            double step = TimeSteps[TimeSteps.Length - 1];
+            foreach (double s in TimeSteps) if (s * pxPerSec >= 40.0) { step = s; break; }
+
+            double lastY = double.NegativeInfinity;
+            long prevK = -1;
+            for (int r = 0; r <= last; r++)
+            {
+                double age = now - _rowTime[(_head + r) % h];
+                long k = (long)Math.Floor(age / step);
+                if (r > 0 && k == prevK) continue;
+                prevK = k;
+                double y = _gT + r;
+                if (y - lastY < 14) continue;
+                lastY = y;
+                // Top row: its real age (non-zero while frozen); others: the step crossed
+                string s = r == 0
+                    ? (age < 0.5 ? "0" : Math.Round(age).ToString("0", CultureInfo.InvariantCulture)) + " s"
+                    : (k * step).ToString("0", CultureInfo.InvariantCulture) + " s";
+                dc.DrawLine(_gridPen, new Point(PlotL - 3, y + 0.5), new Point(PlotL, y + 0.5));
+                DrawTextRight(dc, s, PlotL - 5, r == 0 ? y + 4 : y - 7, _label, 10, ppd);
             }
         }
 
@@ -639,5 +706,17 @@ namespace PedalSpectral
             base.OnMouseLeftButtonDown(e);
             if (e.ClickCount == 2) _an.ResetPeaks();
         }
+    }
+
+    /// <summary>
+    /// Spectrogram history, owned by the machine so it outlives the window (v1.4.2).
+    /// Used only on the GUI thread.
+    /// </summary>
+    internal sealed class SpectrogramState
+    {
+        public WriteableBitmap Bmp;
+        public int[] RowPx = new int[0];
+        public double[] RowTime = new double[0];
+        public int W, H, Head;
     }
 }

@@ -18,7 +18,7 @@ namespace PedalSpectral
     [MachineDecl(Name = "Pedal Spectral", ShortName = "Spectral", Author = "thepedal")]
     public class PedalSpectralMachine : IBuzzMachine
     {
-        internal const string Version = "1.4.1";
+        internal const string Version = "1.4.2";
 
         // ── Audio-thread handoff ───────────────────────────────────────────
         // Work() writes the selected channel, normalised to ±1.0, into this ring.
@@ -144,6 +144,11 @@ namespace PedalSpectral
         // Last width the analyser window was dragged to, so reopening keeps it.
         // Session only; GUI thread only.
         internal double GuiWidth = 540;
+
+        // Spectrogram history and the clock its row times use (v1.4.2): kept here
+        // so closing and reopening the analyser window keeps the history.
+        internal SpectrogramState Gram;
+        internal readonly System.Diagnostics.Stopwatch Clock = System.Diagnostics.Stopwatch.StartNew();
 
         /// <summary>GUI thread: returns true once per requested capture.</summary>
         internal bool TakeCaptureRequest()

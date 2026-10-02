@@ -2,7 +2,7 @@
 
 Real-time spectrum analyser for **Jeskola Buzz 1503 (32-bit)**. It is an inline pass-through effect: insert it anywhere in the graph (just before Master to watch the whole mix, or after any single machine) and the audio passes through untouched while the analyser shows the spectrum in its own window.
 
-Version 1.4.1. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
+Version 1.4.2. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
 
 ## Target — read this first
 
@@ -27,9 +27,9 @@ Only the dll is produced: `.pdb` and `.deps.json` generation is disabled.
 
 ## Using it
 
-Insert it after the signal you want to see and open its parameter window: the analyser opens in a separate window alongside the sliders. **Drag the window's edge to set the width**, and use **Display Height** to set the height (Buzz sizes the window height from the display, not from dragging). The width you drag to is kept when you reopen the window during the session. The main trace is teal and filled; the amber line is peak hold. Hover over the plot to read the frequency, the nearest note (A4 = 440 Hz, with the offset in cents) and the level. Double-click to clear the peak traces.
+Insert it after the signal you want to see and open its parameter window: the analyser opens in a separate window alongside the sliders. **Drag the window's edge to set the width**, and use **Display Height** to set the height (Buzz sizes the window height from the display, not from dragging). Raising Display Height grows an open window, but lowering it does not shrink it: close and reopen the window to get the smaller size. The width you drag to is kept when you reopen the window during the session. The main trace is teal and filled; the amber line is peak hold. Hover over the plot to read the frequency, the nearest note (A4 = 440 Hz, with the offset in cents) and the level. Double-click to clear the peak traces.
 
-**Spectrogram.** Set **View** to Spectrogram or Both. Each display frame (about 30 a second) adds a row at the top, so time runs downwards and a 500 px window shows roughly the last 10 seconds. Colour runs from dark at the Range floor through blue, teal and amber to near white at +6 dB, using the same trace as the spectrum, so Smoothing, Slope and Range affect both. Hovering over the spectrogram shows the frequency, the note and how long ago that row was drawn. Freeze stops the scrolling. The history is cleared when the window is closed or resized, or the View changes.
+**Spectrogram.** Set **View** to Spectrogram or Both. Each display frame (about 30 a second) adds a row at the top, so time runs downwards and a 500 px window shows roughly the last 10 seconds. Colour runs from dark at the Range floor through blue, teal and amber to near white at +6 dB, using the same trace as the spectrum, so Smoothing, Slope and Range affect both. Time markers down the left edge show how old each part is, taken from when each row was actually drawn. Hovering over the spectrogram shows the frequency, the note and how long ago that row was drawn. Freeze stops the scrolling. The history is kept when you close and reopen the analyser window (nothing is recorded while it is closed, and the markers show the jump); it restarts when its size changes, i.e. when you drag the width, change Display Height, or switch between Spectrogram and Both.
 
 **Peak label.** A marker sits on the strongest peak with its frequency and nearest note, e.g. `58.3 Hz   A#1 +2 ct`. The frequency is refined between bins, so it is accurate to a small fraction of a hertz on steady tones. Use Hann or Blackman-Harris for tuning: Flat Top's deliberately flat peak makes the frequency estimate drift by a few cents.
 
@@ -107,6 +107,8 @@ Checked headless against stub interfaces: calibration (Flat Top reads 0.00 dBFS 
 When an upstream machine is muted, Buzz 1503 does not send `WM_NOIO`. It keeps calling `Work()` with a mode that lacks the READ flag, and the input buffer still holds the last block from before the mute. Any effect that reads `input` without checking `(mode & WM_READ)` will loop that block to its output as a buzz. This machine checks the flag (since v1.0.2), and any managed effect for Buzz should do the same.
 
 ## Changelog
+
+- **1.4.2**: Time markers down the left of the spectrogram. Spectrogram history now survives closing and reopening the window. README notes that lowering Display Height needs a reopen.
 
 - **1.4.1**: Frequency grid lines are drawn faintly over the spectrogram instead of as dark lines cutting through it. Fixed the analyser window opening at its minimum height instead of the Display Height (since 1.3.0): Buzz opens the window at the display's minimum height, so the minimum now follows Display Height.
 
