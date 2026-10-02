@@ -2,7 +2,7 @@
 
 Real-time spectrum analyser for **Jeskola Buzz 1503 (32-bit)**. It is an inline pass-through effect: insert it anywhere in the graph (just before Master to watch the whole mix, or after any single machine) and the audio passes through untouched while the analyser shows the spectrum in its own window.
 
-Version 1.4.0. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
+Version 1.4.1. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
 
 ## Target — read this first
 
@@ -107,6 +107,8 @@ Checked headless against stub interfaces: calibration (Flat Top reads 0.00 dBFS 
 When an upstream machine is muted, Buzz 1503 does not send `WM_NOIO`. It keeps calling `Work()` with a mode that lacks the READ flag, and the input buffer still holds the last block from before the mute. Any effect that reads `input` without checking `(mode & WM_READ)` will loop that block to its output as a buzz. This machine checks the flag (since v1.0.2), and any managed effect for Buzz should do the same.
 
 ## Changelog
+
+- **1.4.1**: Frequency grid lines are drawn faintly over the spectrogram instead of as dark lines cutting through it. Fixed the analyser window opening at its minimum height instead of the Display Height (since 1.3.0): Buzz opens the window at the display's minimum height, so the minimum now follows Display Height.
 
 - **1.4.0**: Spectrogram. New View parameter (appended): Spectrum, Spectrogram, or Both stacked with a shared frequency axis. Circular bitmap, one row upload per frame. Hover shows frequency, note and age of the row. New Waterfall preset.
 

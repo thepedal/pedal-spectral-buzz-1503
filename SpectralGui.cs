@@ -100,6 +100,9 @@ namespace PedalSpectral
         readonly Brush _bg = Frozen(new SolidColorBrush(Color.FromRgb(0x16, 0x18, 0x1C)));
         readonly Brush _plotBg = Frozen(new SolidColorBrush(Color.FromRgb(0x1C, 0x1F, 0x24)));
         readonly Pen _gridPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x2A, 0x2E, 0x35)), 1));
+        // Over the spectrogram the normal grid colour reads as dark lines cutting
+        // through bright bands; a faint light line reads as a grid instead (v1.4.1).
+        readonly Pen _gramGridPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF)), 1));
         readonly Pen _zeroPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x44, 0x4A, 0x54)), 1));
         readonly Brush _label = Frozen(new SolidColorBrush(Color.FromRgb(0x7D, 0x85, 0x90)));
         readonly Brush _text = Frozen(new SolidColorBrush(Color.FromRgb(0xC9, 0xD1, 0xD9)));
@@ -128,9 +131,10 @@ namespace PedalSpectral
                 // Don't wipe the machine's peak traces just because the window reopened.
                 if (_m != null)
                 {
-                    // Declare the height straight away, so the window opens at the
-                    // right size instead of at MinHeight for one frame.
-                    Height = Heights[Clamp(_m.DisplayHeight, 0, Heights.Length - 1)];
+                    // Buzz opens the window at the element's MinHeight (seen as exactly
+                    // 200, then exactly 150, in test builds), so MinHeight carries the
+                    // Display Height too. Height alone was not enough (1.3.0 to 1.4.0).
+                    ApplyHeight(Heights[Clamp(_m.DisplayHeight, 0, Heights.Length - 1)]);
                     _lastPeakMode = Clamp(_m.PeakDecay, 0, PeakRates.Length - 1);
                     _lastDisplayKey = DisplayKey(_m);
                 }
@@ -190,7 +194,7 @@ namespace PedalSpectral
 
             // Height comes from the parameter, set as an explicit Height.
             double wantH = Heights[Clamp(m.DisplayHeight, 0, Heights.Length - 1)];
-            if (double.IsNaN(Height) || Math.Abs(Height - wantH) > 0.5) Height = wantH;
+            if (double.IsNaN(Height) || Math.Abs(Height - wantH) > 0.5) ApplyHeight(wantH);
 
             double now = _clock.Elapsed.TotalSeconds;
             double dt = Math.Min(0.25, Math.Max(0.001, now - _lastTick));
@@ -342,6 +346,14 @@ namespace PedalSpectral
             int oct = (int)Math.Floor(n / 12.0) - 1;
             string name = NoteNames[((n % 12) + 12) % 12] + oct.ToString(CultureInfo.InvariantCulture);
             return name + (cents >= 0 ? " +" : " ") + cents.ToString(CultureInfo.InvariantCulture) + " ct";
+        }
+
+        // Set MinHeight and Height together. A change while the window is open
+        // resizes it (confirmed); MinHeight is what the window opens at.
+        void ApplyHeight(double h)
+        {
+            MinHeight = h;
+            Height = h;
         }
 
         static int DisplayKey(PedalSpectralMachine m) =>
@@ -549,7 +561,14 @@ namespace PedalSpectral
             {
                 if (f > _an.FMax + 1) continue;
                 double x = Math.Round(FreqToX(f)) + 0.5;
-                dc.DrawLine(_gridPen, new Point(x, PlotT), new Point(x, PlotB));
+                if (_showGram)
+                {
+                    // Normal grid above the spectrogram, faint grid over it
+                    if (_gT > PlotT) dc.DrawLine(_gridPen, new Point(x, PlotT), new Point(x, _gT));
+                    dc.DrawLine(_gramGridPen, new Point(x, _gT), new Point(x, _gB));
+                }
+                else
+                    dc.DrawLine(_gridPen, new Point(x, PlotT), new Point(x, PlotB));
                 string s = f >= 1000 ? (f / 1000).ToString("0", CultureInfo.InvariantCulture) + "k"
                                      : f.ToString("0", CultureInfo.InvariantCulture);
                 var ft = MakeText(s, _label, 10, ppd);
