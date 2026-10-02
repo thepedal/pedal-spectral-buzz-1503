@@ -18,7 +18,7 @@ namespace PedalSpectral
     [MachineDecl(Name = "Pedal Spectral", ShortName = "Spectral", Author = "thepedal")]
     public class PedalSpectralMachine : IBuzzMachine
     {
-        internal const string Version = "1.3.1";
+        internal const string Version = "1.4.0";
 
         // ── Audio-thread handoff ───────────────────────────────────────────
         // Work() writes the selected channel, normalised to ±1.0, into this ring.
@@ -128,6 +128,13 @@ namespace PedalSpectral
             Description = "Height of the analyser display. Drag the window edge to change the width",
             ValueDescriptions = new[] { "200 px", "300 px", "400 px", "500 px", "600 px" })]
         public int DisplayHeight { get; set; } = 1;
+
+        // ── New in v1.4 — appended ──
+
+        [ParameterDecl(Name = "View", DefValue = 0,
+            Description = "Spectrum, scrolling spectrogram, or both stacked. Both works best at 500 or 600 px Display Height",
+            ValueDescriptions = new[] { "Spectrum", "Spectrogram", "Both" })]
+        public int View { get; set; } = 0;
 
         // ── Display state ──────────────────────────────────────────────────
         // Owned by the machine, used only on the GUI thread, so the reference,

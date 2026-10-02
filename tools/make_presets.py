@@ -29,6 +29,7 @@ PARAMS = [
     ("Reference",       0),   # bool
     ("Peak Label",      1),   # Off, Low End, Full Range
     ("Display Height",  1),   # 200, 300, 400, 500, 600 px
+    ("View",            0),   # Spectrum, Spectrogram, Both          (v1.4)
 ]
 
 # Sparse overrides: only what differs from the defaults above.
@@ -52,6 +53,9 @@ PRESETS = [
     ("Transients",
      {"FFT Size": 0, "Average": 0, "Peak Decay": 5, "Peak Label": 0},
      "Fast response for drums and attacks: 1024 points, no averaging, fast peak decay."),
+    ("Waterfall",
+     {"View": 2, "Display Height": 3, "Average": 1, "Peak Decay": 0, "Smoothing": 2, "Peak Label": 0},
+     "Spectrum above a scrolling spectrogram at 500 px: 50 ms average, 1/12 oct smoothing."),
     ("Side Check",
      {"Channel": 3, "Average": 5, "Peak Decay": 3, "Slope": 2, "Smoothing": 3, "Peak Label": 0},
      "Side signal only: where the stereo width is, smoothed and sloped like Mix Check."),

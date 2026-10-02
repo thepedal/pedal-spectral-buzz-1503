@@ -12,6 +12,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using BuzzGUI.Interfaces;   // IMachineGUIFactory, IMachineGUI, IMachineGUIHost, IMachine
 
@@ -76,6 +77,24 @@ namespace PedalSpectral
         // is computed invalidates them (v1.1.2). Packed: fft, window, slope, smoothing.
         int _lastDisplayKey = -1;
         Point? _mouse;
+
+        // ── Layout regions (v1.4) ──
+        // Spectrum region _sT.._sB, spectrogram region _gT.._gB. The frequency axis
+        // is shared and sits below PlotB.
+        bool _showSpec = true, _showGram;
+        double _sT, _sB, _gT, _gB;
+
+        // ── Spectrogram (v1.4) ──
+        // Newest row at the top. One row per display frame. Kept in this GUI, so
+        // closing the window clears the history; resizing or changing View resets it.
+        // Circular: each frame writes ONE bitmap row at _head, and drawing shows the
+        // bitmap in two slices so the newest row is on top. Cost per frame is one
+        // row upload, whatever the window size.
+        WriteableBitmap _gram;
+        int[] _rowPx = new int[0];
+        double[] _rowTime = new double[0];   // indexed by bitmap row
+        int _gW, _gH, _head;
+        static readonly int[] Palette = BuildPalette();
 
         // Frozen drawing resources
         readonly Brush _bg = Frozen(new SolidColorBrush(Color.FromRgb(0x16, 0x18, 0x1C)));
@@ -181,6 +200,7 @@ namespace PedalSpectral
             int win = Clamp(m.Window, 0, 2);
             int cols = (int)(PlotR - PlotL);
             _an.Configure(n, win, cols, m.SampleRate);
+            Layout(m);
 
             double tau = AvgTaus[Clamp(m.Average, 0, AvgTaus.Length - 1)];
             int pkIdx = Clamp(m.PeakDecay, 0, PeakRates.Length - 1);
@@ -232,7 +252,84 @@ namespace PedalSpectral
                 _an.ProcessSilence(dt, tau, peak, slope, smooth);
             }
 
+            if (_showGram) AddGramRow(Floors[Clamp(m.Range, 0, Floors.Length - 1)], now);
+
             InvalidateVisual();
+        }
+
+        void Layout(PedalSpectralMachine m)
+        {
+            int view = m != null ? Clamp(m.View, 0, 2) : 0;
+            _showSpec = view != 1;
+            _showGram = view != 0;
+            _sT = PlotT; _sB = PlotB;
+            if (view == 1) { _gT = PlotT + 34; _gB = PlotB; }        // two text rows above
+            else if (view == 2)
+            {
+                double total = PlotB - PlotT;
+                _sT = PlotT;
+                _sB = Math.Round(PlotT + total * 0.45);
+                _gT = _sB + 4;
+                _gB = PlotB;
+            }
+        }
+
+        // ── Spectrogram ──
+        static int[] BuildPalette()
+        {
+            // floor -> dark, then deep blue, teal, amber, near white at the top
+            double[] pos = { 0.0, 0.25, 0.5, 0.75, 1.0 };
+            int[,] rgb = { { 0x16, 0x18, 0x1C }, { 0x1E, 0x3A, 0x6E }, { 0x2E, 0x9E, 0x9A },
+                           { 0xE0, 0xB0, 0x40 }, { 0xFF, 0xF6, 0xD8 } };
+            var p = new int[256];
+            for (int i = 0; i < 256; i++)
+            {
+                double t = i / 255.0;
+                int k = 0;
+                while (k < pos.Length - 2 && t > pos[k + 1]) k++;
+                double u = (t - pos[k]) / (pos[k + 1] - pos[k]);
+                int r = (int)Math.Round(rgb[k, 0] + (rgb[k + 1, 0] - rgb[k, 0]) * u);
+                int g = (int)Math.Round(rgb[k, 1] + (rgb[k + 1, 1] - rgb[k, 1]) * u);
+                int b = (int)Math.Round(rgb[k, 2] + (rgb[k + 1, 2] - rgb[k, 2]) * u);
+                p[i] = unchecked((int)0xFF000000) | (r << 16) | (g << 8) | b;
+            }
+            return p;
+        }
+
+        bool EnsureGram()
+        {
+            int w = _an.Main.Length;
+            int h = (int)Math.Max(0, Math.Floor(_gB - _gT));
+            if (w < 2 || h < 2) return false;
+            if (_gram != null && w == _gW && h == _gH) return true;
+            _gW = w; _gH = h; _head = 0;
+            _gram = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgr32, null);
+            var fill = new int[w * h];
+            for (int i = 0; i < fill.Length; i++) fill[i] = Palette[0];
+            _gram.WritePixels(new Int32Rect(0, 0, w, h), fill, w * 4, 0);
+            _rowPx = new int[w];
+            _rowTime = new double[h];
+            for (int i = 0; i < h; i++) _rowTime[i] = double.NaN;
+            return true;
+        }
+
+        void AddGramRow(double floor, double now)
+        {
+            if (!EnsureGram()) return;
+            int w = _gW, h = _gH;
+            // Newest row goes one above the previous newest (wrapping), so reading
+            // the bitmap from _head downwards runs newest to oldest.
+            _head = (_head - 1 + h) % h;
+            _rowTime[_head] = now;
+            float[] main = _an.Main;
+            double span = TopDb - floor;
+            for (int c = 0; c < w; c++)
+            {
+                double t = (main[c] - floor) / span;
+                int idx = t <= 0 ? 0 : (t >= 1 ? 255 : (int)(t * 255.0));
+                _rowPx[c] = Palette[idx];
+            }
+            _gram.WritePixels(new Int32Rect(0, _head, w, 1), _rowPx, w * 4, 0);
         }
 
         /// <summary>Nearest equal-tempered note, A4 = 440 Hz, e.g. A1 +6 ct.</summary>
@@ -263,7 +360,7 @@ namespace PedalSpectral
         {
             double t = (TopDb - db) / (TopDb - floor);
             if (t < 0) t = 0; else if (t > 1) t = 1;
-            return PlotT + t * (PlotB - PlotT);
+            return _sT + t * (_sB - _sT);
         }
 
         // ── Rendering ──────────────────────────────────────────────────────
@@ -274,26 +371,42 @@ namespace PedalSpectral
             dc.DrawRectangle(_plotBg, null, new Rect(PlotL, PlotT, PlotR - PlotL, PlotB - PlotT));
 
             var m = _m;
+            Layout(m);
             double floor = m != null ? Floors[Clamp(m.Range, 0, Floors.Length - 1)] : -96.0;
             double ppd = VisualTreeHelper.GetDpi(this).PixelsPerDip;
 
             try
             {
+                if (_showGram && _gram != null && _gW == _an.Main.Length)
+                {
+                    // Bitmap rows _head..h-1 are newest..; rows 0.._head-1 continue below.
+                    int upper = _gH - _head;
+                    dc.PushClip(new RectangleGeometry(new Rect(PlotL, _gT, _gW, upper)));
+                    dc.DrawImage(_gram, new Rect(PlotL, _gT - _head, _gW, _gH));
+                    dc.Pop();
+                    if (_head > 0)
+                    {
+                        dc.PushClip(new RectangleGeometry(new Rect(PlotL, _gT + upper, _gW, _head)));
+                        dc.DrawImage(_gram, new Rect(PlotL, _gT + upper, _gW, _gH));
+                        dc.Pop();
+                    }
+                }
+
                 DrawGrid(dc, floor, ppd);
                 if (m == null) return;
 
                 float[] main = _an.Main, pk = _an.Peak, rf = _an.Reference;
                 int cols = main.Length;
-                if (cols > 1)
+                if (cols > 1 && _showSpec)
                 {
                     // Filled main trace
                     var g = new StreamGeometry();
                     using (var ctx = g.Open())
                     {
-                        ctx.BeginFigure(new Point(PlotL, PlotB), true, true);
+                        ctx.BeginFigure(new Point(PlotL, _sB), true, true);
                         for (int c = 0; c < cols; c++)
                             ctx.LineTo(new Point(PlotL + c + 0.5, DbToY(main[c], floor)), true, false);
-                        ctx.LineTo(new Point(PlotL + cols, PlotB), false, false);
+                        ctx.LineTo(new Point(PlotL + cols, _sB), false, false);
                     }
                     g.Freeze();
                     dc.DrawGeometry(_fill, null, g);
@@ -344,7 +457,7 @@ namespace PedalSpectral
 
                 // Peak label (v1.2)
                 int pl = Clamp(m.PeakLabel, 0, 2);
-                if (pl > 0) DrawPeakLabel(dc, pl == 1 ? 250.0 : _an.FMax, floor, ppd,
+                if (pl > 0 && _showSpec) DrawPeakLabel(dc, pl == 1 ? 250.0 : _an.FMax, floor, ppd,
                                           Slopes[Clamp(m.Slope, 0, Slopes.Length - 1)]);
 
                 // Status line
@@ -355,6 +468,8 @@ namespace PedalSpectral
                 string sm = SmoothNames[Clamp(m.Smoothing, 0, SmoothNames.Length - 1)];
                 if (sm.Length > 0) status += "   " + sm;
                 DrawText(dc, status, PlotL + 6, PlotT + 4, _label, 10, ppd);
+                if (_showGram && !_showSpec)
+                    DrawText(dc, "Spectrogram   newest at top", PlotL + 6, PlotT + 18, _label, 10, ppd);
 
                 // Badges sit on the second row, right-aligned, so a long status
                 // line can never run into them (v1.1.1).
@@ -385,11 +500,30 @@ namespace PedalSpectral
                         double f = _an.ColumnFreq(c);
                         string fs = f >= 1000 ? (f / 1000).ToString("0.00", CultureInfo.InvariantCulture) + " kHz"
                                               : f.ToString("0", CultureInfo.InvariantCulture) + " Hz";
-                        string ds = main[c] <= -199f ? "-inf dB" : main[c].ToString("0.0", CultureInfo.InvariantCulture) + " dB";
-                        string line = fs + "   " + NoteName(f) + "   " + ds;
-                        if (m.Reference && _an.HasReference && c < rf.Length && rf[c] > -199f)
-                            line += "   ref " + rf[c].ToString("0.0", CultureInfo.InvariantCulture) + " dB";
-                        DrawText(dc, line, PlotL + 6, PlotT + 18, _text, 11, ppd);
+                        string line = fs + "   " + NoteName(f);
+                        bool inGram = _showGram && p.Y >= _gT && p.Y < _gB;
+                        if (inGram)
+                        {
+                            // Spectrogram: how long ago this row was drawn
+                            int r = (int)(p.Y - _gT);
+                            if (r >= 0 && r < _gH && _rowTime.Length == _gH)
+                            {
+                                double t0 = _rowTime[(_head + r) % _gH];
+                                if (!double.IsNaN(t0))
+                                    line += "   " + (_clock.Elapsed.TotalSeconds - t0).ToString("0.0", CultureInfo.InvariantCulture) + " s ago";
+                            }
+                            dc.DrawLine(_cursorPen, new Point(PlotL, Math.Round(p.Y) + 0.5), new Point(PlotL + cols, Math.Round(p.Y) + 0.5));
+                        }
+                        else if (_showSpec)
+                        {
+                            string ds = main[c] <= -199f ? "-inf dB" : main[c].ToString("0.0", CultureInfo.InvariantCulture) + " dB";
+                            line += "   " + ds;
+                            if (m.Reference && _an.HasReference && c < rf.Length && rf[c] > -199f)
+                                line += "   ref " + rf[c].ToString("0.0", CultureInfo.InvariantCulture) + " dB";
+                        }
+                        var lt = MakeText(line, _text, 11, ppd);
+                        dc.DrawRectangle(_labelBg, null, new Rect(PlotL + 3, PlotT + 17, lt.Width + 6, lt.Height + 2));
+                        dc.DrawText(lt, new Point(PlotL + 6, PlotT + 18));
                     }
                 }
             }
@@ -403,7 +537,7 @@ namespace PedalSpectral
         {
             // dB lines every 12 dB from 0 down (6 dB for the -60 range)
             double step = floor >= -60.0 ? 6.0 : 12.0;
-            for (double db = 0; db >= floor; db -= step)
+            for (double db = 0; _showSpec && db >= floor; db -= step)
             {
                 double y = Math.Round(DbToY(db, floor)) + 0.5;
                 dc.DrawLine(db == 0 ? _zeroPen : _gridPen, new Point(PlotL, y), new Point(PlotR, y));
@@ -450,7 +584,7 @@ namespace PedalSpectral
             var ft = MakeText(s, _text, 11, ppd);
             double tx = Math.Min(Math.Max(x - ft.Width / 2, PlotL + 2), PlotR - ft.Width - 2);
             double ty = y - 12 - ft.Height;
-            if (ty < PlotT + 34) ty = y + 6;                         // no room above: go below
+            if (ty < _sT + 34) ty = y + 6;                         // no room above: go below
             dc.DrawRectangle(_labelBg, null, new Rect(tx - 3, ty - 1, ft.Width + 6, ft.Height + 2));
             dc.DrawText(ft, new Point(tx, ty));
         }

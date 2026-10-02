@@ -2,7 +2,7 @@
 
 Real-time spectrum analyser for **Jeskola Buzz 1503 (32-bit)**. It is an inline pass-through effect: insert it anywhere in the graph (just before Master to watch the whole mix, or after any single machine) and the audio passes through untouched while the analyser shows the spectrum in its own window.
 
-Version 1.3.1. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
+Version 1.4.0. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
 
 ## Target — read this first
 
@@ -29,6 +29,8 @@ Only the dll is produced: `.pdb` and `.deps.json` generation is disabled.
 
 Insert it after the signal you want to see and open its parameter window: the analyser opens in a separate window alongside the sliders. **Drag the window's edge to set the width**, and use **Display Height** to set the height (Buzz sizes the window height from the display, not from dragging). The width you drag to is kept when you reopen the window during the session. The main trace is teal and filled; the amber line is peak hold. Hover over the plot to read the frequency, the nearest note (A4 = 440 Hz, with the offset in cents) and the level. Double-click to clear the peak traces.
 
+**Spectrogram.** Set **View** to Spectrogram or Both. Each display frame (about 30 a second) adds a row at the top, so time runs downwards and a 500 px window shows roughly the last 10 seconds. Colour runs from dark at the Range floor through blue, teal and amber to near white at +6 dB, using the same trace as the spectrum, so Smoothing, Slope and Range affect both. Hovering over the spectrogram shows the frequency, the note and how long ago that row was drawn. Freeze stops the scrolling. The history is cleared when the window is closed or resized, or the View changes.
+
 **Peak label.** A marker sits on the strongest peak with its frequency and nearest note, e.g. `58.3 Hz   A#1 +2 ct`. The frequency is refined between bins, so it is accurate to a small fraction of a hertz on steady tones. Use Hann or Blackman-Harris for tuning: Flat Top's deliberately flat peak makes the frequency estimate drift by a few cents.
 
 **Reference overlay.** Switch **Reference** on to capture the current main trace as a dashed overlay; the live trace keeps running over it, and the hover readout shows both levels. Switch it off and on again to recapture. If Freeze is on, the frozen trace is captured. The reference stores the captured spectrum, not the drawn line, so it is always drawn through the current Smoothing and Slope: both traces are processed the same way even if you change those after capturing. Capture and compare at the **same FFT size**, though: tone levels read the same at any size, but noise and dense mixes read about 3 dB lower per doubling of FFT size, because the same energy is spread over twice as many bins. It is not saved with the song: after reloading, the badge reads REF empty until you switch Reference off and on again.
@@ -51,6 +53,7 @@ A full-scale sine reads 0 dBFS at its peak. The display runs from +6 dBFS at the
 | Reference | off/on | Switching on captures the current trace as an overlay |
 | Peak Label | Off, **Low End**, Full Range | Marks the strongest peak with frequency and nearest note. Low End searches 20–250 Hz, for kick and bass tuning |
 | Display Height | 200, **300**, 400, 500, 600 px | Height of the analyser window. The width is set by dragging |
+| View | **Spectrum**, Spectrogram, Both | Both stacks the spectrum above a scrolling spectrogram; use 500 or 600 px |
 
 When the input goes silent (upstream muted, disconnected, or sending no audio), the traces fall away instead of freezing on the last frame.
 
@@ -67,9 +70,10 @@ Right-click the machine to choose a preset. The bundle `Pedal Spectral.NET.prs.x
 | Bass Tuning | A steady peak label for tuning kick and bass to key: Hann, 8192, 500 ms |
 | Exact Levels | Flat Top for accurate tone levels, peak hold, full-range peak label |
 | Transients | Fast response for drums: 1024 points, no averaging, fast peak decay |
+| Waterfall | Spectrum above a scrolling spectrogram at 500 px, 50 ms average, 1/12 oct |
 | Side Check | Side signal only, smoothed and sloped like Mix Check |
 
-Every preset sets Freeze and Reference off and Display Height to 300 px, so choosing one also unfreezes the display and clears the reference.
+Every preset sets Freeze and Reference off and Display Height to 300 px (500 for Waterfall), so choosing one also unfreezes the display and clears the reference.
 
 To change the bank, edit `tools/make_presets.py` and run `python tools/make_presets.py`; the build deploys the result. The script lists parameters in declaration order, because presets store values by index.
 
@@ -103,6 +107,8 @@ Checked headless against stub interfaces: calibration (Flat Top reads 0.00 dBFS 
 When an upstream machine is muted, Buzz 1503 does not send `WM_NOIO`. It keeps calling `Work()` with a mode that lacks the READ flag, and the input buffer still holds the last block from before the mute. Any effect that reads `input` without checking `(mode & WM_READ)` will loop that block to its output as a buzz. This machine checks the flag (since v1.0.2), and any managed effect for Buzz should do the same.
 
 ## Changelog
+
+- **1.4.0**: Spectrogram. New View parameter (appended): Spectrum, Spectrogram, or Both stacked with a shared frequency axis. Circular bitmap, one row upload per frame. Hover shows frequency, note and age of the row. New Waterfall preset.
 
 - **1.3.1**: Preset bundle with eight presets (Init, Mix Check, Mix Detail, Kick and Bass, Bass Tuning, Exact Levels, Transients, Side Check), generated by `tools/make_presets.py` and deployed with the dll.
 
