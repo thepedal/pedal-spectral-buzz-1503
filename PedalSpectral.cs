@@ -18,7 +18,7 @@ namespace PedalSpectral
     [MachineDecl(Name = "Pedal Spectral", ShortName = "Spectral", Author = "thepedal")]
     public class PedalSpectralMachine : IBuzzMachine
     {
-        internal const string Version = "1.4.2";
+        internal const string Version = "1.5.0";
 
         // ── Audio-thread handoff ───────────────────────────────────────────
         // Work() writes the selected channel, normalised to ±1.0, into this ring.
@@ -32,7 +32,10 @@ namespace PedalSpectral
         // index stays continuous across the wrap.
         internal const int RingSize = 32768;                 // 4x the largest FFT
         const int RingMask = RingSize - 1;
-        readonly float[] _ring = new float[RingSize];
+        // Both channels are kept (v1.5) so the GUI can form Mid, Left, Right or
+        // Side itself, and show two of them at once in Stereo view.
+        readonly float[] _ringL = new float[RingSize];
+        readonly float[] _ringR = new float[RingSize];
         int _writePos;                                       // Volatile read/write only
         volatile int _sampleRate = 44100;
 
@@ -136,14 +139,30 @@ namespace PedalSpectral
             ValueDescriptions = new[] { "Spectrum", "Spectrogram", "Both" })]
         public int View { get; set; } = 0;
 
+        // ── New in v1.5 — appended ──
+
+        [ParameterDecl(Name = "Scroll Speed", DefValue = 0,
+            Description = "Spectrogram speed. Slow and Very Slow keep the loudest level of each row, so short hits are not lost",
+            ValueDescriptions = new[] { "Normal", "Slow", "Very Slow" })]
+        public int ScrollSpeed { get; set; } = 0;
+
+        [ParameterDecl(Name = "Stereo", DefValue = 0,
+            Description = "Show two channels at once. Overrides Channel. The first of the two drives the peak label, reference, peak hold and spectrogram",
+            ValueDescriptions = new[] { "Off", "Left and Right", "Mid and Side" })]
+        public int Stereo { get; set; } = 0;
+
+        // Set by dragging the analyser window's width, so it is saved with the song.
+        [ParameterDecl(Name = "Display Width", DefValue = 5,
+            Description = "Width of the analyser window. Set by dragging the window edge; used when the window opens",
+            ValueDescriptions = new[] { "340 px", "380 px", "420 px", "460 px", "500 px", "540 px", "580 px", "620 px", "660 px", "700 px", "740 px", "780 px", "820 px", "860 px", "900 px", "940 px", "980 px", "1020 px", "1060 px", "1100 px", "1140 px", "1180 px", "1220 px", "1260 px", "1300 px", "1340 px", "1380 px", "1420 px", "1460 px", "1500 px", "1540 px", "1580 px", "1620 px", "1660 px", "1700 px", "1740 px", "1780 px", "1820 px", "1860 px", "1900 px", "1940 px", "1980 px", "2020 px", "2060 px", "2100 px", "2140 px", "2180 px", "2220 px", "2260 px", "2300 px", "2340 px" })]
+        public int DisplayWidth { get; set; } = 5;
+
         // ── Display state ──────────────────────────────────────────────────
         // Owned by the machine, used only on the GUI thread, so the reference,
         // averages and peaks survive closing and reopening the parameter window.
         internal readonly SpectrumAnalyser Analyser = new SpectrumAnalyser();
+        internal readonly SpectrumAnalyser Analyser2 = new SpectrumAnalyser();   // Stereo: second trace
 
-        // Last width the analyser window was dragged to, so reopening keeps it.
-        // Session only; GUI thread only.
-        internal double GuiWidth = 540;
 
         // Spectrogram history and the clock its row times use (v1.4.2): kept here
         // so closing and reopening the analyser window keeps the history.
@@ -177,19 +196,15 @@ namespace PedalSpectral
             if (mi != null && mi.SamplesPerSec > 0) _sampleRate = mi.SamplesPerSec;  // read every call; it can change at runtime
 
             const float scale = 1f / 32768f;   // Buzz full scale is ±32768
-            int ch = Channel;
-            float[] ring = _ring;
+            float[] rl = _ringL, rr = _ringR;
             int w = Volatile.Read(ref _writePos);
 
             for (int i = 0; i < n; i++)
             {
                 Sample s = input[i];
-                float v;
-                if (ch == 1)      v = s.L;
-                else if (ch == 2) v = s.R;
-                else if (ch == 3) v = (s.L - s.R) * 0.5f;
-                else              v = (s.L + s.R) * 0.5f;
-                ring[w & RingMask] = v * scale;
+                int k = w & RingMask;
+                rl[k] = s.L * scale;
+                rr[k] = s.R * scale;
                 w++;
             }
             Volatile.Write(ref _writePos, w);
@@ -207,12 +222,20 @@ namespace PedalSpectral
         internal int WritePos => Volatile.Read(ref _writePos);
         internal int SampleRate => _sampleRate;
 
-        /// <summary>Copy the n samples ending at write position w into dst[0..n), oldest first.</summary>
-        internal void CopyLatest(float[] dst, int n, int w)
+        /// <summary>
+        /// Copy the n samples ending at write position w into dst[0..n), oldest first,
+        /// as channel ch: 0 Mid (L+R)/2, 1 Left, 2 Right, 3 Side (L-R)/2.
+        /// </summary>
+        internal void CopyLatest(float[] dst, int n, int w, int ch)
         {
-            float[] ring = _ring;
+            float[] rl = _ringL, rr = _ringR;
             int start = w - n;
-            for (int i = 0; i < n; i++) dst[i] = ring[(start + i) & RingMask];
+            for (int i = 0; i < n; i++)
+            {
+                int k = (start + i) & RingMask;
+                float l = rl[k], r = rr[k];
+                dst[i] = ch == 1 ? l : ch == 2 ? r : ch == 3 ? (l - r) * 0.5f : (l + r) * 0.5f;
+            }
         }
 
         // ── Right-click menu ───────────────────────────────────────────────

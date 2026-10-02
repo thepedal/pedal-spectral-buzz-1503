@@ -35,7 +35,9 @@ namespace PedalSpectral
     {
         // Width follows the host: Buzz's parameter window clips rather than widens,
         // so the GUI takes whatever width it is arranged at (v1.0.1).
-        const double DefaultW = 540, MinW = 360, MaxW = 2400;
+        const double DefaultW = 540, MinW = 340, MaxW = 2400;
+        const double WidthBase = 340, WidthStep = 40;   // Display Width parameter: 340 + 40 * value
+        const int WidthMaxIdx = 50;
         const double DefaultH = 300, MinH = 150, MaxH = 1600;
         static readonly double[] Heights = { 200, 300, 400, 500, 600 };
         const double PlotL = 44, PlotT = 8;
@@ -67,6 +69,8 @@ namespace PedalSpectral
         SpectrumAnalyser _an;
         bool _pendingCapture;
         readonly float[] _frame = new float[SpectrumAnalyser.MaxN];
+        readonly float[] _frameB = new float[SpectrumAnalyser.MaxN];   // Stereo: trace B
+        int _lastChKey = -1;
         readonly DispatcherTimer _timer;
         readonly Stopwatch _clock = Stopwatch.StartNew();
         double _lastTick, _lastNewData;
@@ -118,6 +122,9 @@ namespace PedalSpectral
         readonly Brush _text = Frozen(new SolidColorBrush(Color.FromRgb(0xC9, 0xD1, 0xD9)));
         readonly Brush _fill = Frozen(new SolidColorBrush(Color.FromArgb(0x48, 0x3F, 0xB6, 0xA8)));
         readonly Pen _line = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0x3F, 0xB6, 0xA8)), 1.2));
+        readonly Pen _linePenB = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0xE0, 0x6C, 0x9F)), 1.2));   // Stereo trace B
+        readonly Brush _legendA = Frozen(new SolidColorBrush(Color.FromRgb(0x3F, 0xB6, 0xA8)));
+        readonly Brush _legendB = Frozen(new SolidColorBrush(Color.FromRgb(0xE0, 0x6C, 0x9F)));
         readonly Pen _peakPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0xC0, 0xE0, 0xA0, 0x40)), 1));
         readonly Pen _cursorPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(0x80, 0xC9, 0xD1, 0xD9)), 1));
         readonly Brush _frozenBadge = Frozen(new SolidColorBrush(Color.FromRgb(0x5A, 0x8D, 0xEE)));
@@ -187,7 +194,7 @@ namespace PedalSpectral
         // then fills whatever the host actually gives, so a dragged window still fills.
         protected override Size MeasureOverride(Size availableSize)
         {
-            double pref = _m != null ? _m.GuiWidth : DefaultW;
+            double pref = _m != null ? WidthBase + WidthStep * Clamp(_m.DisplayWidth, 0, WidthMaxIdx) : DefaultW;
             double w = Unbounded(availableSize.Width) ? pref : Math.Min(pref, Math.Max(availableSize.Width, MinW));
             // Height is set explicitly from the Display Height parameter, so WPF
             // already clamps the offer to it; take what arrives.
@@ -199,7 +206,7 @@ namespace PedalSpectral
         {
             double w = ClampW(finalSize.Width), h = ClampH(finalSize.Height);
             if (Math.Abs(w - W) > 0.5 || Math.Abs(h - H) > 0.5) { W = w; H = h; InvalidateVisual(); }
-            if (_m != null) _m.GuiWidth = W;
+            RecordWidth(W);
             return new Size(W, H);
         }
 
@@ -214,6 +221,7 @@ namespace PedalSpectral
             // Height comes from the parameter, set as an explicit Height.
             double wantH = Heights[Clamp(m.DisplayHeight, 0, Heights.Length - 1)];
             if (double.IsNaN(Height) || Math.Abs(Height - wantH) > 0.5) ApplyHeight(wantH);
+            _ticked = true;   // window is up: dragged widths may now be recorded
 
             double now = _clock.Elapsed.TotalSeconds;
             double dt = Math.Min(0.25, Math.Max(0.001, now - _lastTick));
@@ -225,12 +233,22 @@ namespace PedalSpectral
             _an.Configure(n, win, cols, m.SampleRate);
             Layout(m);
 
+            // Channels: trace A always; trace B only in Stereo view (v1.5).
+            int stereo = Clamp(m.Stereo, 0, 2);
+            int chA = stereo == 0 ? Clamp(m.Channel, 0, 3) : (stereo == 1 ? 1 : 0);
+            int chB = stereo == 1 ? 2 : 3;
+            var anB = m.Analyser2;
+            if (stereo > 0) anB.Configure(n, win, cols, m.SampleRate);
+
             double tau = AvgTaus[Clamp(m.Average, 0, AvgTaus.Length - 1)];
             int pkIdx = Clamp(m.PeakDecay, 0, PeakRates.Length - 1);
             double peak = PeakRates[pkIdx];
             double slope = Slopes[Clamp(m.Slope, 0, Slopes.Length - 1)];
             double smooth = SmoothOcts[Clamp(m.Smoothing, 0, SmoothOcts.Length - 1)];
             int key = DisplayKey(m);
+            // Trace A changing channel also invalidates its peak record
+            int chKey = stereo * 4 + chA;
+            if (chKey != _lastChKey) { _an.ResetPeaks(); _lastChKey = chKey; }
             if (pkIdx != _lastPeakMode || key != _lastDisplayKey)
             {
                 _an.ResetPeaks();
@@ -253,6 +271,7 @@ namespace PedalSpectral
                 // Re-map the held spectrum so Slope, Smoothing and a new reference
                 // still take effect on a frozen display.
                 _an.Refresh(peak, slope, smooth);
+                if (stereo > 0) anB.Refresh(-1, slope, smooth);
                 InvalidateVisual();
                 return;
             }
@@ -264,8 +283,13 @@ namespace PedalSpectral
             {
                 _lastWritePos = w;
                 _lastNewData = now;
-                m.CopyLatest(_frame, n, w);
+                m.CopyLatest(_frame, n, w, chA);
                 _an.Process(_frame, dt, tau, peak, slope, smooth);
+                if (stereo > 0)
+                {
+                    m.CopyLatest(_frameB, n, w, chB);
+                    anB.Process(_frameB, dt, tau, -1, slope, smooth);   // no peak trace for B
+                }
                 if (_pendingCapture) { _an.CaptureReference(); _an.Refresh(peak, slope, smooth); _pendingCapture = false; }
             }
             else if (now - _lastNewData > 0.15)
@@ -273,9 +297,10 @@ namespace PedalSpectral
                 // Ring stopped advancing: WM_NOIO, muted, or disconnected. Let traces fall.
                 // The 150 ms grace keeps large host buffers from flickering the display.
                 _an.ProcessSilence(dt, tau, peak, slope, smooth);
+                if (stereo > 0) anB.ProcessSilence(dt, tau, -1, slope, smooth);
             }
 
-            if (_showGram) AddGramRow(Floors[Clamp(m.Range, 0, Floors.Length - 1)], Now);
+            if (_showGram) GramTick(m);
 
             InvalidateVisual();
         }
@@ -319,6 +344,8 @@ namespace PedalSpectral
             return p;
         }
 
+        static readonly double[] RowIntervals = { 0.0, 0.1, 1.0 / 3.0 };   // Normal (every frame), Slow, Very Slow
+
         bool EnsureGram()
         {
             int w = _an.Main.Length;
@@ -333,22 +360,49 @@ namespace PedalSpectral
             _rowPx = new int[w];
             _rowTime = new double[h];
             for (int i = 0; i < h; i++) _rowTime[i] = double.NaN;
+            _gs.Levels = new float[w * h];
+            for (int i = 0; i < _gs.Levels.Length; i++) _gs.Levels[i] = -200f;
+            _gs.Acc = new float[w];
+            for (int i = 0; i < w; i++) _gs.Acc[i] = -200f;
+            _gs.LastRow = double.NegativeInfinity;
             return true;
+        }
+
+        /// <summary>
+        /// Every frame: fold the current trace into the row accumulator (max per
+        /// column), and write a row when the Scroll Speed interval has passed.
+        /// </summary>
+        void GramTick(PedalSpectralMachine m)
+        {
+            if (!EnsureGram()) return;
+            float[] main = _an.Main, acc = _gs.Acc;
+            for (int c = 0; c < _gW; c++) if (main[c] > acc[c]) acc[c] = main[c];
+
+            double interval = RowIntervals[Clamp(m.ScrollSpeed, 0, RowIntervals.Length - 1)];
+            double t = Now;
+            if (interval > 0.0 && t - _gs.LastRow < interval) return;
+            // Advance on a fixed grid so the rate doesn't drift, but don't try to
+            // catch up after a long pause (window closed, frozen).
+            _gs.LastRow = (interval <= 0.0 || t - _gs.LastRow > 3 * interval) ? t : _gs.LastRow + interval;
+            AddGramRow(Floors[Clamp(m.Range, 0, Floors.Length - 1)], t);
         }
 
         void AddGramRow(double floor, double now)
         {
-            if (!EnsureGram()) return;
             int w = _gW, h = _gH;
             // Newest row goes one above the previous newest (wrapping), so reading
             // the bitmap from _head downwards runs newest to oldest.
             _head = (_head - 1 + h) % h;
             _rowTime[_head] = now;
-            float[] main = _an.Main;
+            float[] acc = _gs.Acc, lv = _gs.Levels;
             double span = TopDb - floor;
+            int o = _head * w;
             for (int c = 0; c < w; c++)
             {
-                double t = (main[c] - floor) / span;
+                float v = acc[c];
+                lv[o + c] = v;                  // kept for the hover readout
+                acc[c] = -200f;
+                double t = (v - floor) / span;
                 int idx = t <= 0 ? 0 : (t >= 1 ? 255 : (int)(t * 255.0));
                 _rowPx[c] = Palette[idx];
             }
@@ -373,6 +427,46 @@ namespace PedalSpectral
         {
             MinHeight = h;
             Height = h;
+        }
+
+        // ── Display Width parameter (v1.5) ──
+        // Dragging the window records the width in the Display Width parameter, so it
+        // is saved with the song and used when the window next opens. Written through
+        // the host's IParameter, so Buzz stores it like any slider change; deferred
+        // out of the layout pass; ignored until the window has run a tick, so early
+        // layout passes can't overwrite the saved width.
+        bool _ticked;
+        bool _widthWritePending;
+
+        void RecordWidth(double w)
+        {
+            var m = _m;
+            if (m == null || !_ticked || _widthWritePending) return;
+            int idx = (int)Math.Round((w - WidthBase) / WidthStep);
+            idx = Clamp(idx, 0, WidthMaxIdx);
+            if (idx == m.DisplayWidth) return;
+            _widthWritePending = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _widthWritePending = false;
+                int now = Clamp((int)Math.Round((W - WidthBase) / WidthStep), 0, WidthMaxIdx);
+                if (_m != null && now != _m.DisplayWidth) SetOwnParameter("Display Width", now);
+            }), DispatcherPriority.Background);
+        }
+
+        void SetOwnParameter(string name, int value)
+        {
+            try
+            {
+                var groups = _iMachine?.ParameterGroups;
+                if (groups != null)
+                    foreach (var g in groups)
+                        foreach (var p in g.Parameters)
+                            if (p.Name == name) { p.SetValue(0, value); return; }
+            }
+            catch { }
+            // Fallback: session only (not saved with the song)
+            if (_m != null && name == "Display Width") _m.DisplayWidth = value;
         }
 
         static int DisplayKey(PedalSpectralMachine m) =>
@@ -453,6 +547,22 @@ namespace PedalSpectral
                     lineG.Freeze();
                     dc.DrawGeometry(null, _line, lineG);
 
+                    // Stereo: trace B as a line over trace A (v1.5)
+                    int st = Clamp(m.Stereo, 0, 2);
+                    float[] mb = m.Analyser2.Main;
+                    if (st > 0 && mb.Length == cols)
+                    {
+                        var bG = new StreamGeometry();
+                        using (var ctx = bG.Open())
+                        {
+                            ctx.BeginFigure(new Point(PlotL + 0.5, DbToY(mb[0], floor)), false, false);
+                            for (int c = 1; c < cols; c++)
+                                ctx.LineTo(new Point(PlotL + c + 0.5, DbToY(mb[c], floor)), true, false);
+                        }
+                        bG.Freeze();
+                        dc.DrawGeometry(null, _linePenB, bG);
+                    }
+
                     // Reference overlay
                     if (m.Reference && _an.HasReference && rf.Length == cols)
                     {
@@ -494,12 +604,23 @@ namespace PedalSpectral
 
                 // Status line
                 int n = FftSizes[Clamp(m.FftSize, 0, FftSizes.Length - 1)];
+                int stv = Clamp(m.Stereo, 0, 2);
                 string status = "FFT " + n + "   " + _an.BinHz.ToString("0.0", CultureInfo.InvariantCulture) +
-                                " Hz bins   " + WinNames[Clamp(m.Window, 0, 2)] + "   " +
-                                ChanNames[Clamp(m.Channel, 0, 3)];
+                                " Hz bins   " + WinNames[Clamp(m.Window, 0, 2)] +
+                                (stv == 0 ? "   " + ChanNames[Clamp(m.Channel, 0, 3)] : "");
                 string sm = SmoothNames[Clamp(m.Smoothing, 0, SmoothNames.Length - 1)];
                 if (sm.Length > 0) status += "   " + sm;
-                DrawText(dc, status, PlotL + 6, PlotT + 4, _label, 10, ppd);
+                var stt = MakeText(status, _label, 10, ppd);
+                dc.DrawText(stt, new Point(PlotL + 6, PlotT + 4));
+                if (stv > 0)
+                {
+                    // Colour legend for the two traces, right after the status text
+                    double lx = PlotL + 6 + stt.Width + 12;
+                    var la = MakeText(stv == 1 ? "Left" : "Mid", _legendA, 10, ppd);
+                    dc.DrawText(la, new Point(lx, PlotT + 4));
+                    var lb = MakeText(stv == 1 ? "Right" : "Side", _legendB, 10, ppd);
+                    dc.DrawText(lb, new Point(lx + la.Width + 8, PlotT + 4));
+                }
                 if (_showGram && !_showSpec)
                     DrawText(dc, "Spectrogram   newest at top", PlotL + 6, PlotT + 18, _label, 10, ppd);
 
@@ -540,16 +661,31 @@ namespace PedalSpectral
                             int r = (int)(p.Y - _gT);
                             if (r >= 0 && r < _gH && _rowTime.Length == _gH)
                             {
-                                double t0 = _rowTime[(_head + r) % _gH];
+                                int b = (_head + r) % _gH;
+                                double t0 = _rowTime[b];
                                 if (!double.IsNaN(t0))
+                                {
+                                    if (_gs.Levels.Length == _gW * _gH && c < _gW)
+                                    {
+                                        float lvl = _gs.Levels[b * _gW + c];
+                                        line += "   " + (lvl <= -199f ? "-inf" : lvl.ToString("0.0", CultureInfo.InvariantCulture)) + " dB";
+                                    }
                                     line += "   " + (Now - t0).ToString("0.0", CultureInfo.InvariantCulture) + " s ago";
+                                }
                             }
                             dc.DrawLine(_cursorPen, new Point(PlotL, Math.Round(p.Y) + 0.5), new Point(PlotL + cols, Math.Round(p.Y) + 0.5));
                         }
                         else if (_showSpec)
                         {
                             string ds = main[c] <= -199f ? "-inf dB" : main[c].ToString("0.0", CultureInfo.InvariantCulture) + " dB";
-                            line += "   " + ds;
+                            int sth = Clamp(m.Stereo, 0, 2);
+                            float[] mbh = m.Analyser2.Main;
+                            if (sth > 0 && c < mbh.Length)
+                            {
+                                string db2 = mbh[c] <= -199f ? "-inf dB" : mbh[c].ToString("0.0", CultureInfo.InvariantCulture) + " dB";
+                                line += "   " + (sth == 1 ? "L " : "M ") + ds + "   " + (sth == 1 ? "R " : "S ") + db2;
+                            }
+                            else line += "   " + ds;
                             if (m.Reference && _an.HasReference && c < rf.Length && rf[c] > -199f)
                                 line += "   ref " + rf[c].ToString("0.0", CultureInfo.InvariantCulture) + " dB";
                         }
@@ -718,5 +854,8 @@ namespace PedalSpectral
         public int[] RowPx = new int[0];
         public double[] RowTime = new double[0];
         public int W, H, Head;
+        public float[] Levels = new float[0];   // displayed dB per row and column (v1.5)
+        public float[] Acc = new float[0];      // max since the last row (Scroll Speed)
+        public double LastRow = double.NegativeInfinity;
     }
 }

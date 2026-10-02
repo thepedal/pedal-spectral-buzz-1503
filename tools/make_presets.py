@@ -30,6 +30,9 @@ PARAMS = [
     ("Peak Label",      1),   # Off, Low End, Full Range
     ("Display Height",  1),   # 200, 300, 400, 500, 600 px
     ("View",            0),   # Spectrum, Spectrogram, Both          (v1.4)
+    ("Scroll Speed",    0),   # Normal, Slow, Very Slow              (v1.5)
+    ("Stereo",          0),   # Off, Left and Right, Mid and Side    (v1.5)
+    ("Display Width",   5),   # 340 + 40 * value px (5 = 540)        (v1.5)
 ]
 
 # Sparse overrides: only what differs from the defaults above.
@@ -56,6 +59,12 @@ PRESETS = [
     ("Waterfall",
      {"View": 2, "Display Height": 3, "Average": 1, "Peak Decay": 0, "Smoothing": 2, "Peak Label": 0},
      "Spectrum above a scrolling spectrogram at 500 px: 50 ms average, 1/12 oct smoothing."),
+    ("Song Overview",
+     {"View": 1, "Display Height": 3, "Scroll Speed": 2, "Average": 3, "Smoothing": 3, "Slope": 2, "Peak Label": 0},
+     "Spectrogram of about the last 2 to 3 minutes: Very Slow scroll, 1/6 oct, 4.5 dB per oct, 500 px."),
+    ("Stereo Check",
+     {"Stereo": 2, "Average": 5, "Peak Decay": 0, "Slope": 2, "Smoothing": 3, "Peak Label": 0},
+     "Mid and Side as two traces, smoothed and sloped like Mix Check."),
     ("Side Check",
      {"Channel": 3, "Average": 5, "Peak Decay": 3, "Slope": 2, "Smoothing": 3, "Peak Label": 0},
      "Side signal only: where the stereo width is, smoothed and sloped like Mix Check."),

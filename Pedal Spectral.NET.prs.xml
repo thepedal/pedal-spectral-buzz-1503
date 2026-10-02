@@ -16,6 +16,9 @@
         <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="1" />
         <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
         <Parameter Name="View" Group="1" Index="12" Track="0" Value="0" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
       </Parameters>
       <Attributes />
       <Comment>All parameters at their defaults.</Comment>
@@ -37,6 +40,9 @@
         <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
         <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
         <Parameter Name="View" Group="1" Index="12" Track="0" Value="0" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
       </Parameters>
       <Attributes />
       <Comment>Tonal balance of a full mix: 1/6 oct smoothing, 4.5 dB per oct slope, 1 sec average.</Comment>
@@ -58,6 +64,9 @@
         <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
         <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
         <Parameter Name="View" Group="1" Index="12" Track="0" Value="0" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
       </Parameters>
       <Attributes />
       <Comment>Mix with finer detail: 8192 points, light 1/24 oct smoothing, 4.5 dB per oct slope.</Comment>
@@ -79,6 +88,9 @@
         <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="1" />
         <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
         <Parameter Name="View" Group="1" Index="12" Track="0" Value="0" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
       </Parameters>
       <Attributes />
       <Comment>Low end at 8192 points with a fast average and the low-end peak label.</Comment>
@@ -100,6 +112,9 @@
         <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="1" />
         <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
         <Parameter Name="View" Group="1" Index="12" Track="0" Value="0" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
       </Parameters>
       <Attributes />
       <Comment>Steady peak label for tuning kick and bass to key: Hann, 8192 points, 500 ms average.</Comment>
@@ -121,6 +136,9 @@
         <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="2" />
         <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
         <Parameter Name="View" Group="1" Index="12" Track="0" Value="0" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
       </Parameters>
       <Attributes />
       <Comment>Flat Top window for accurate tone levels, peak hold, full-range peak label.</Comment>
@@ -142,6 +160,9 @@
         <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
         <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
         <Parameter Name="View" Group="1" Index="12" Track="0" Value="0" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
       </Parameters>
       <Attributes />
       <Comment>Fast response for drums and attacks: 1024 points, no averaging, fast peak decay.</Comment>
@@ -163,9 +184,60 @@
         <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
         <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="3" />
         <Parameter Name="View" Group="1" Index="12" Track="0" Value="2" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
       </Parameters>
       <Attributes />
       <Comment>Spectrum above a scrolling spectrogram at 500 px: 50 ms average, 1/12 oct smoothing.</Comment>
+    </Preset>
+  </Item>
+  <Item Key="Song Overview">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="2" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="1" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="0" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="3" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="4" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="2" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="2" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="3" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="3" />
+        <Parameter Name="View" Group="1" Index="12" Track="0" Value="1" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="2" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
+      </Parameters>
+      <Attributes />
+      <Comment>Spectrogram of about the last 2 to 3 minutes: Very Slow scroll, 1/6 oct, 4.5 dB per oct, 500 px.</Comment>
+    </Preset>
+  </Item>
+  <Item Key="Stereo Check">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="2" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="1" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="0" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="5" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="0" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="2" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="2" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="3" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
+        <Parameter Name="View" Group="1" Index="12" Track="0" Value="0" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="2" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
+      </Parameters>
+      <Attributes />
+      <Comment>Mid and Side as two traces, smoothed and sloped like Mix Check.</Comment>
     </Preset>
   </Item>
   <Item Key="Side Check">
@@ -184,6 +256,9 @@
         <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
         <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
         <Parameter Name="View" Group="1" Index="12" Track="0" Value="0" />
+        <Parameter Name="Scroll Speed" Group="1" Index="13" Track="0" Value="0" />
+        <Parameter Name="Stereo" Group="1" Index="14" Track="0" Value="0" />
+        <Parameter Name="Display Width" Group="1" Index="15" Track="0" Value="5" />
       </Parameters>
       <Attributes />
       <Comment>Side signal only: where the stereo width is, smoothed and sloped like Mix Check.</Comment>

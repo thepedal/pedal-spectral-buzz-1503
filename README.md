@@ -2,7 +2,7 @@
 
 Real-time spectrum analyser for **Jeskola Buzz 1503 (32-bit)**. It is an inline pass-through effect: insert it anywhere in the graph (just before Master to watch the whole mix, or after any single machine) and the audio passes through untouched while the analyser shows the spectrum in its own window.
 
-Version 1.4.2. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
+Version 1.5.0. Licensed under the GNU General Public License v3.0 (see `LICENSE`).
 
 ## Target — read this first
 
@@ -27,9 +27,11 @@ Only the dll is produced: `.pdb` and `.deps.json` generation is disabled.
 
 ## Using it
 
-Insert it after the signal you want to see and open its parameter window: the analyser opens in a separate window alongside the sliders. **Drag the window's edge to set the width**, and use **Display Height** to set the height (Buzz sizes the window height from the display, not from dragging). Raising Display Height grows an open window, but lowering it does not shrink it: close and reopen the window to get the smaller size. The width you drag to is kept when you reopen the window during the session. The main trace is teal and filled; the amber line is peak hold. Hover over the plot to read the frequency, the nearest note (A4 = 440 Hz, with the offset in cents) and the level. Double-click to clear the peak traces.
+Insert it after the signal you want to see and open its parameter window: the analyser opens in a separate window alongside the sliders. **Drag the window's edge to set the width**, and use **Display Height** to set the height (Buzz sizes the window height from the display, not from dragging). Raising Display Height grows an open window, but lowering it does not shrink it: close and reopen the window to get the smaller size. The width you drag to is stored in the **Display Width** parameter, so it is saved with the song and used whenever the window opens. The main trace is teal and filled; the amber line is peak hold. Hover over the plot to read the frequency, the nearest note (A4 = 440 Hz, with the offset in cents) and the level. Double-click to clear the peak traces.
 
-**Spectrogram.** Set **View** to Spectrogram or Both. Each display frame (about 30 a second) adds a row at the top, so time runs downwards and a 500 px window shows roughly the last 10 seconds. Colour runs from dark at the Range floor through blue, teal and amber to near white at +6 dB, using the same trace as the spectrum, so Smoothing, Slope and Range affect both. Time markers down the left edge show how old each part is, taken from when each row was actually drawn. Hovering over the spectrogram shows the frequency, the note and how long ago that row was drawn. Freeze stops the scrolling. The history is kept when you close and reopen the analyser window (nothing is recorded while it is closed, and the markers show the jump); it restarts when its size changes, i.e. when you drag the width, change Display Height, or switch between Spectrogram and Both.
+**Spectrogram.** Set **View** to Spectrogram or Both. Rows are added at the top, so time runs downwards. **Scroll Speed** sets how fast: Normal adds a row every display frame (about 30 a second; a 500 px Spectrogram view holds about 15 seconds, Both about 8), Slow 10 a second, and Very Slow 3 a second (about 2 to 3 minutes, enough for a whole song section). In the slower modes each row keeps the loudest level of every frequency across the frames it covers, so short hits are not lost. Colour runs from dark at the Range floor through blue, teal and amber to near white at +6 dB, using the same trace as the spectrum, so Smoothing, Slope and Range affect both. Time markers down the left edge show how old each part is, taken from when each row was actually drawn. Hovering over the spectrogram shows the frequency, the note, the level at that point and how long ago that row was drawn. Freeze stops the scrolling. The history is kept when you close and reopen the analyser window (nothing is recorded while it is closed, and the markers show the jump); it restarts when its size changes, i.e. when you drag the width, change Display Height, or switch between Spectrogram and Both.
+
+**Stereo.** Set **Stereo** to Left and Right, or Mid and Side, to see two traces at once: the first (Left or Mid) is the filled teal trace, the second (Right or Side) a rose line, with a colour legend in the status line and both levels in the hover readout. Stereo overrides Channel. The first trace drives the peak label, reference, peak hold and spectrogram.
 
 **Peak label.** A marker sits on the strongest peak with its frequency and nearest note, e.g. `58.3 Hz   A#1 +2 ct`. The frequency is refined between bins, so it is accurate to a small fraction of a hertz on steady tones. Use Hann or Blackman-Harris for tuning: Flat Top's deliberately flat peak makes the frequency estimate drift by a few cents.
 
@@ -54,6 +56,9 @@ A full-scale sine reads 0 dBFS at its peak. The display runs from +6 dBFS at the
 | Peak Label | Off, **Low End**, Full Range | Marks the strongest peak with frequency and nearest note. Low End searches 20–250 Hz, for kick and bass tuning |
 | Display Height | 200, **300**, 400, 500, 600 px | Height of the analyser window. The width is set by dragging |
 | View | **Spectrum**, Spectrogram, Both | Both stacks the spectrum above a scrolling spectrogram; use 500 or 600 px |
+| Scroll Speed | **Normal**, Slow, Very Slow | Spectrogram rows per second: about 30, 10, 3 |
+| Stereo | **Off**, Left and Right, Mid and Side | Two traces at once; overrides Channel |
+| Display Width | 340 to 2340 px, **540** | Set by dragging the window; saved with the song |
 
 When the input goes silent (upstream muted, disconnected, or sending no audio), the traces fall away instead of freezing on the last frame.
 
@@ -71,9 +76,11 @@ Right-click the machine to choose a preset. The bundle `Pedal Spectral.NET.prs.x
 | Exact Levels | Flat Top for accurate tone levels, peak hold, full-range peak label |
 | Transients | Fast response for drums: 1024 points, no averaging, fast peak decay |
 | Waterfall | Spectrum above a scrolling spectrogram at 500 px, 50 ms average, 1/12 oct |
+| Song Overview | Spectrogram only, Very Slow, about the last 2 to 3 minutes |
+| Stereo Check | Mid and Side as two traces, set up like Mix Check |
 | Side Check | Side signal only, smoothed and sloped like Mix Check |
 
-Every preset sets Freeze and Reference off and Display Height to 300 px (500 for Waterfall), so choosing one also unfreezes the display and clears the reference.
+Every preset sets Freeze and Reference off, Display Height to 300 px (500 for Waterfall and Song Overview) and Display Width to 540 px (applied when the window next opens), so choosing one also unfreezes the display and clears the reference.
 
 To change the bank, edit `tools/make_presets.py` and run `python tools/make_presets.py`; the build deploys the result. The script lists parameters in declaration order, because presets store values by index.
 
@@ -107,6 +114,8 @@ Checked headless against stub interfaces: calibration (Flat Top reads 0.00 dBFS 
 When an upstream machine is muted, Buzz 1503 does not send `WM_NOIO`. It keeps calling `Work()` with a mode that lacks the READ flag, and the input buffer still holds the last block from before the mute. Any effect that reads `input` without checking `(mode & WM_READ)` will loop that block to its output as a buzz. This machine checks the flag (since v1.0.2), and any managed effect for Buzz should do the same.
 
 ## Changelog
+
+- **1.5.0**: Scroll Speed (Normal, Slow, Very Slow; slower rows keep the loudest level). Hover over the spectrogram shows the level. Stereo view (Left and Right, or Mid and Side, as two traces). Display Width parameter: the dragged width is saved with the song. Both channels are now buffered, and Channel is applied in the display. New presets Song Overview and Stereo Check. Three parameters appended.
 
 - **1.4.2**: Time markers down the left of the spectrogram. Spectrogram history now survives closing and reopening the window. README notes that lowering Display Height needs a reopen.
 
