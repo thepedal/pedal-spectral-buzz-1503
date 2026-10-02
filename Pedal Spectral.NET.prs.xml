@@ -1,0 +1,163 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<PresetDictionary>
+  <Item Key="Init">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="2" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="1" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="0" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="3" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="4" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="0" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="2" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="0" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="1" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
+      </Parameters>
+      <Attributes />
+      <Comment>All parameters at their defaults.</Comment>
+    </Preset>
+  </Item>
+  <Item Key="Mix Check">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="2" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="1" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="0" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="5" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="3" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="2" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="2" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="3" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
+      </Parameters>
+      <Attributes />
+      <Comment>Tonal balance of a full mix: 1/6 oct smoothing, 4.5 dB per oct slope, 1 sec average.</Comment>
+    </Preset>
+  </Item>
+  <Item Key="Mix Detail">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="3" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="1" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="0" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="4" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="4" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="2" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="2" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="1" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
+      </Parameters>
+      <Attributes />
+      <Comment>Mix with finer detail: 8192 points, light 1/24 oct smoothing, 4.5 dB per oct slope.</Comment>
+    </Preset>
+  </Item>
+  <Item Key="Kick and Bass">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="3" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="1" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="0" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="2" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="4" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="0" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="1" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="0" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="1" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
+      </Parameters>
+      <Attributes />
+      <Comment>Low end at 8192 points with a fast average and the low-end peak label.</Comment>
+    </Preset>
+  </Item>
+  <Item Key="Bass Tuning">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="3" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="0" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="0" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="4" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="0" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="0" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="1" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="0" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="1" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
+      </Parameters>
+      <Attributes />
+      <Comment>Steady peak label for tuning kick and bass to key: Hann, 8192 points, 500 ms average.</Comment>
+    </Preset>
+  </Item>
+  <Item Key="Exact Levels">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="2" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="2" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="0" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="3" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="1" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="0" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="2" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="0" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="2" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
+      </Parameters>
+      <Attributes />
+      <Comment>Flat Top window for accurate tone levels, peak hold, full-range peak label.</Comment>
+    </Preset>
+  </Item>
+  <Item Key="Transients">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="0" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="1" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="0" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="0" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="5" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="0" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="2" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="0" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
+      </Parameters>
+      <Attributes />
+      <Comment>Fast response for drums and attacks: 1024 points, no averaging, fast peak decay.</Comment>
+    </Preset>
+  </Item>
+  <Item Key="Side Check">
+    <Preset Machine="Pedal Spectral">
+      <Parameters>
+        <Parameter Name="FFT Size" Group="1" Index="0" Track="0" Value="2" />
+        <Parameter Name="Window" Group="1" Index="1" Track="0" Value="1" />
+        <Parameter Name="Channel" Group="1" Index="2" Track="0" Value="3" />
+        <Parameter Name="Average" Group="1" Index="3" Track="0" Value="5" />
+        <Parameter Name="Peak Decay" Group="1" Index="4" Track="0" Value="3" />
+        <Parameter Name="Slope" Group="1" Index="5" Track="0" Value="2" />
+        <Parameter Name="Range" Group="1" Index="6" Track="0" Value="2" />
+        <Parameter Name="Freeze" Group="1" Index="7" Track="0" Value="0" />
+        <Parameter Name="Smoothing" Group="1" Index="8" Track="0" Value="3" />
+        <Parameter Name="Reference" Group="1" Index="9" Track="0" Value="0" />
+        <Parameter Name="Peak Label" Group="1" Index="10" Track="0" Value="0" />
+        <Parameter Name="Display Height" Group="1" Index="11" Track="0" Value="1" />
+      </Parameters>
+      <Attributes />
+      <Comment>Side signal only: where the stereo width is, smoothed and sloped like Mix Check.</Comment>
+    </Preset>
+  </Item>
+</PresetDictionary>

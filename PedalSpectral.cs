@@ -18,7 +18,7 @@ namespace PedalSpectral
     [MachineDecl(Name = "Pedal Spectral", ShortName = "Spectral", Author = "thepedal")]
     public class PedalSpectralMachine : IBuzzMachine
     {
-        internal const string Version = "1.2.0";
+        internal const string Version = "1.3.1";
 
         // ── Audio-thread handoff ───────────────────────────────────────────
         // Work() writes the selected channel, normalised to ±1.0, into this ring.
@@ -122,10 +122,21 @@ namespace PedalSpectral
             ValueDescriptions = new[] { "Off", "Low End", "Full Range" })]
         public int PeakLabel { get; set; } = 1;
 
+        // ── New in v1.3 — appended ──
+
+        [ParameterDecl(Name = "Display Height", DefValue = 1,
+            Description = "Height of the analyser display. Drag the window edge to change the width",
+            ValueDescriptions = new[] { "200 px", "300 px", "400 px", "500 px", "600 px" })]
+        public int DisplayHeight { get; set; } = 1;
+
         // ── Display state ──────────────────────────────────────────────────
         // Owned by the machine, used only on the GUI thread, so the reference,
         // averages and peaks survive closing and reopening the parameter window.
         internal readonly SpectrumAnalyser Analyser = new SpectrumAnalyser();
+
+        // Last width the analyser window was dragged to, so reopening keeps it.
+        // Session only; GUI thread only.
+        internal double GuiWidth = 540;
 
         /// <summary>GUI thread: returns true once per requested capture.</summary>
         internal bool TakeCaptureRequest()

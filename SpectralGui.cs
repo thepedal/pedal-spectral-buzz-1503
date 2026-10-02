@@ -17,7 +17,10 @@ using BuzzGUI.Interfaces;   // IMachineGUIFactory, IMachineGUI, IMachineGUIHost,
 
 namespace PedalSpectral
 {
-    [MachineGUIFactoryDecl(PreferWindowedGUI = false, IsGUIResizable = false, UseThemeStyles = false)]
+    // Separate, resizable window (v1.3). In Buzz 1503 the window width follows
+    // dragging; its height follows the Height this element declares, which comes
+    // from the Display Height parameter.
+    [MachineGUIFactoryDecl(PreferWindowedGUI = true, IsGUIResizable = true, UseThemeStyles = false)]
     public class SpectralGuiFactory : IMachineGUIFactory
     {
         public IMachineGUI CreateGUI(IMachineGUIHost host) => new SpectralGui();
@@ -31,8 +34,14 @@ namespace PedalSpectral
     {
         // Width follows the host: Buzz's parameter window clips rather than widens,
         // so the GUI takes whatever width it is arranged at (v1.0.1).
-        const double DefaultW = 540, MinW = 360, MaxW = 1600, H = 300;
-        const double PlotL = 44, PlotT = 8, PlotB = H - 22;
+        const double DefaultW = 540, MinW = 360, MaxW = 2400;
+        const double DefaultH = 300, MinH = 150, MaxH = 1600;
+        static readonly double[] Heights = { 200, 300, 400, 500, 600 };
+        const double PlotL = 44, PlotT = 8;
+        double H = DefaultH;
+        double PlotB => H - 22;
+
+
         double W = DefaultW;
         double PlotR => W - 10;
         const double TopDb = 6.0;
@@ -100,6 +109,9 @@ namespace PedalSpectral
                 // Don't wipe the machine's peak traces just because the window reopened.
                 if (_m != null)
                 {
+                    // Declare the height straight away, so the window opens at the
+                    // right size instead of at MinHeight for one frame.
+                    Height = Heights[Clamp(_m.DisplayHeight, 0, Heights.Length - 1)];
                     _lastPeakMode = Clamp(_m.PeakDecay, 0, PeakRates.Length - 1);
                     _lastDisplayKey = DisplayKey(_m);
                 }
@@ -109,8 +121,8 @@ namespace PedalSpectral
 
         public SpectralGui()
         {
-            Height = H;
             MinWidth = MinW;
+            MinHeight = MinH;
             _an = _fallback;
             SnapsToDevicePixels = true;
             UseLayoutRounding = true;
@@ -124,25 +136,42 @@ namespace PedalSpectral
 
         static double ClampW(double w) => w < MinW ? MinW : (w > MaxW ? MaxW : w);
 
+        static double ClampH(double h) => h < MinH ? MinH : (h > MaxH ? MaxH : h);
+        static bool Unbounded(double v) => double.IsInfinity(v) || double.IsNaN(v);
+
+        // Measure asks for the preferred width (default, or the last dragged width),
+        // or less if less is offered. It must NOT take a large offer: Buzz offers about
+        // the whole screen and sizes the window to whatever Measure returns. Arrange
+        // then fills whatever the host actually gives, so a dragged window still fills.
         protected override Size MeasureOverride(Size availableSize)
         {
-            double w = double.IsInfinity(availableSize.Width) || double.IsNaN(availableSize.Width)
-                ? DefaultW : ClampW(availableSize.Width);
-            return new Size(w, H);
+            double pref = _m != null ? _m.GuiWidth : DefaultW;
+            double w = Unbounded(availableSize.Width) ? pref : Math.Min(pref, Math.Max(availableSize.Width, MinW));
+            // Height is set explicitly from the Display Height parameter, so WPF
+            // already clamps the offer to it; take what arrives.
+            double h = Unbounded(availableSize.Height) ? DefaultH : ClampH(availableSize.Height);
+            return new Size(w, h);
         }
 
         protected override Size ArrangeOverride(Size finalSize)
         {
-            double w = ClampW(finalSize.Width);
-            if (Math.Abs(w - W) > 0.5) { W = w; InvalidateVisual(); }
+            double w = ClampW(finalSize.Width), h = ClampH(finalSize.Height);
+            if (Math.Abs(w - W) > 0.5 || Math.Abs(h - H) > 0.5) { W = w; H = h; InvalidateVisual(); }
+            if (_m != null) _m.GuiWidth = W;
             return new Size(W, H);
         }
+
+
 
         // ── Analysis tick (UI thread) ──────────────────────────────────────
         void Tick()
         {
             var m = _m;
             if (m == null) return;
+
+            // Height comes from the parameter, set as an explicit Height.
+            double wantH = Heights[Clamp(m.DisplayHeight, 0, Heights.Length - 1)];
+            if (double.IsNaN(Height) || Math.Abs(Height - wantH) > 0.5) Height = wantH;
 
             double now = _clock.Elapsed.TotalSeconds;
             double dt = Math.Min(0.25, Math.Max(0.001, now - _lastTick));
